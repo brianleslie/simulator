@@ -135,7 +135,7 @@ void checkLine(){
 /*                                                                       */
 /* Part of programming in Arduino, used to set up the board for the      */
 /* program. Enables serial communication over ports 1 and 2, at a baud   */
-/* rate of 9600 for both. It also configures pins 11 and 12 as ouputs.   */
+/* rate of 9600 for both. It also configures pins 8 as an ouput.         */
 /* It configures pins 2, 3, and A0 as inputs. It sets the reference      */
 /* voltage for analog input at 2.56V. It attaches an interrupt to pin 2  */
 /* that will run the function checkLines if it is triggered by a rising  */
@@ -146,8 +146,7 @@ void checkLine(){
 void setup(){
   Serial.begin(9600);
   Serial1.begin(9600);
-  pinMode(12, OUTPUT);
-  pinMode(11, INPUT);
+  pinMode(8, OUTPUT);
   pinMode(2, INPUT);
   pinMode(3, INPUT);
   pinMode(A0, INPUT);
