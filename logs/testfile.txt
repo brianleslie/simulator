@@ -1,0 +1,30 @@
+at line 12 root> ?: SUCCESS
+
+at line 95 mission_print: SUCCESS
+
+at line 133 mission_print: SUCCESS
+
+at line 599 mission_print: SUCCESS
+
+at line 636 mission_print: SUCCESS
+
+at line 1407 mission_print: SUCCESS
+
+at line 171 m_state: SUCCESS
+
+at line 186 m_state: SUCCESS
+
+at line 672 m_state: SUCCESS
+
+at line 686 m_state: SUCCESS
+
+at line 1397 m_state: SUCCESS
+
+at line 1454 m_state: SUCCESS
+
+at line 169 m_deploy: SUCCESS
+
+at line 670 m_deploy: SUCCESS
+
+at line 1441 m_deploy: FAILED ......(error in line 1443)
+
