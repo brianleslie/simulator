@@ -482,6 +482,95 @@ def m_state(readFile, writeFile):
                 m_state = 1
                 commandLine = lineCount
 
+###########################################################################
+#                                                                         #
+#                                 m_deploy                                #
+#                                 ########                                 #
+#                                                                        #
+# parameters: readFile, file that contains test commands and responses    #
+#             writeFile, file that conatins the results of the tests      #
+#                                                                         #
+# returns: none                                                           #
+#                                                                         #
+# Opens the readFile then checks each line while incrementing lineCount.  #
+# If the m_deploy command is found, it checks each subsequent lines for   #
+# the m_state command. Next, it will confirm that all of the mission      #
+# parameters are correct for the current state after being deployed. It   #
+# ensures that the correct parameters are there by comparing a string     #
+# created throughout the test like in the previous functions.             #
+#                                                                         #
+###########################################################################
+
+def m_deploy(readFile, writeFile):
+    count = ""
+    m_state = -1
+    lineCount = 0
+    error = -1
+    with open(readFile) as f:
+        for line in f:
+            lineCount = lineCount +1
+            if m_deploy > 0:
+                if 'm_hello' in line:
+                    m_state = -1
+                elif count == '' and '' in line:
+                    count +='0'
+                elif 'root> m_state' in line:
+                    count += '1'
+                elif 'Mission State:' in line:
+                    values0 = line.split()
+                    Mission_State = values0[2]
+                    ##print Mission_State
+                    count += '2'
+                    if Mission_State == 'PRELUDE':
+                        count += '3'
+                    else:
+                        error = 1
+                 elif 'Pressure Activation Depth:' in line:
+                    values1 = line.split()
+                    Pressure_Activation_Depth = values1[3]
+                    ##print Pressure_Activation_Depth
+                    count += '4'
+                elif 'Standby Mode:' in line:
+                    values2 = line.split()
+                    Standby_Mode = values2[2]
+                    ##print Standby_Mode
+                    count +='5'
+                    if Standby_Mode == 'off':
+                        count += '6'
+                    else:
+                        error = 2
+                    f = open(writeFile, 'a')
+                    temp = str(commandLine)
+                    if count == '0123456':
+                        f.write('at line ')
+                        f.write(temp)
+                        f.write(' m_deploy: SUCCESS\n')
+                        f.write('\n')
+                        count = ""
+                        m_state = -1
+                else:
+                    f = open(writeFile, 'a')
+                    temp = str(commandLine)
+                    f.write('at line ')
+                    f.write(temp)
+                    f.write(' m_deploy: FAILED ......')
+                    f.write('(error in line ')
+                    f.write(str(lineCount))
+                    
+                    if error == 0:
+                        f.write(')\n\n')
+                    if error == 1:
+                        f.write(': wrong Mission State)\n\n')
+                    if error == 2:
+                        f.write(': wrong Standby Mode)\n\n')
+                    error = 0
+                    count = ""
+                    m_state = -1
+            if 'm_deploy' in line:
+                m_deploy = 1
+                commandLine = lineCount
+
+                
 
 ###########################################################################
 #                                                                         #
