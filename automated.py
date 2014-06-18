@@ -520,7 +520,7 @@ def m_deploy(readFile, writeFile):
                 elif 'Mission State:' in line:
                     values0 = line.split()
                     Mission_State = values0[2]
-                    print Mission_State
+                    ##print Mission_State
                     count += '2'
                     if Mission_State == 'PRELUDE':
                         count += '3'
@@ -529,12 +529,12 @@ def m_deploy(readFile, writeFile):
                 elif 'Pressure Activation Depth:' in line:
                     values1 = line.split()
                     Pressure_Activation_Depth = values1[3]
-                    print Pressure_Activation_Depth
+                    ##print Pressure_Activation_Depth
                     count += '4'
                 elif 'Standby Mode:' in line:
                     values2 = line.split()
                     Standby_Mode = values2[2]
-                    print Standby_Mode
+                    ##print Standby_Mode
                     count +='5'
                     if Standby_Mode == 'off':
                         count += '6'
