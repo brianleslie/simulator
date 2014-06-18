@@ -485,8 +485,8 @@ def m_state(readFile, writeFile):
 ###########################################################################
 #                                                                         #
 #                                 m_deploy                                #
-#                                 ########                                 #
-#                                                                        #
+#                                 ########                                #
+#                                                                         #
 # parameters: readFile, file that contains test commands and responses    #
 #             writeFile, file that conatins the results of the tests      #
 #                                                                         #
@@ -503,37 +503,38 @@ def m_state(readFile, writeFile):
 
 def m_deploy(readFile, writeFile):
     count = ""
-    m_state = -1
+    commandLine = -2
+    m_deploy = -1
     lineCount = 0
-    error = -1
+    error = 0
     with open(readFile) as f:
         for line in f:
             lineCount = lineCount +1
             if m_deploy > 0:
                 if 'm_hello' in line:
-                    m_state = -1
-                elif count == '' and '' in line:
-                    count +='0'
+                    m_deploy = -1
+                elif lineCount == commandLine + 1:
+                    count += '0'
                 elif 'root> m_state' in line:
                     count += '1'
                 elif 'Mission State:' in line:
                     values0 = line.split()
                     Mission_State = values0[2]
-                    ##print Mission_State
+                    print Mission_State
                     count += '2'
                     if Mission_State == 'PRELUDE':
                         count += '3'
                     else:
                         error = 1
-                 elif 'Pressure Activation Depth:' in line:
+                elif 'Pressure Activation Depth:' in line:
                     values1 = line.split()
                     Pressure_Activation_Depth = values1[3]
-                    ##print Pressure_Activation_Depth
+                    print Pressure_Activation_Depth
                     count += '4'
                 elif 'Standby Mode:' in line:
                     values2 = line.split()
                     Standby_Mode = values2[2]
-                    ##print Standby_Mode
+                    print Standby_Mode
                     count +='5'
                     if Standby_Mode == 'off':
                         count += '6'
@@ -547,7 +548,7 @@ def m_deploy(readFile, writeFile):
                         f.write(' m_deploy: SUCCESS\n')
                         f.write('\n')
                         count = ""
-                        m_state = -1
+                        m_deploy = -1
                 else:
                     f = open(writeFile, 'a')
                     temp = str(commandLine)
@@ -556,7 +557,6 @@ def m_deploy(readFile, writeFile):
                     f.write(' m_deploy: FAILED ......')
                     f.write('(error in line ')
                     f.write(str(lineCount))
-                    
                     if error == 0:
                         f.write(')\n\n')
                     if error == 1:
@@ -565,7 +565,7 @@ def m_deploy(readFile, writeFile):
                         f.write(': wrong Standby Mode)\n\n')
                     error = 0
                     count = ""
-                    m_state = -1
+                    m_deploy = -1
             if 'm_deploy' in line:
                 m_deploy = 1
                 commandLine = lineCount
@@ -592,8 +592,9 @@ def test(readFile, writeFile):
     root_bang(readFile, writeFile)
     mission_print(readFile, writeFile)
     m_state(readFile, writeFile)
+    m_deploy(readFile, writeFile)
 
 
 
-test('DeepApex0009041714.txt', 'testfile.txt')
+test('logs/DeepApex0009041714.txt', 'logs/testfile.txt')
 
