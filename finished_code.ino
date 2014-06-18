@@ -10,6 +10,20 @@
 
 /*************************************************************************/
 /*                             global variables                          */
+/*                             ****************                          */
+/*                                                                       */
+/* interruptMessage: an int that represents which message to send based  */
+/*                  on the toggling of the hardware lines                */
+/*                                                                       */
+/* msg, msg2, msg3, msg4: Strings to be sent over serial to the APFx     */
+/*                                                                       */
+/* msgLen, msg2Len, msg3Len, msg4Len: ints used to specify length of the */
+/*                  respective messages, needed when sending as bytes    */
+/*                                                                       */
+/* cmdMode, pts, pt, p: arrays of bytes sent over serial, the arrays are */
+/*                  created by converting their corresponding Strings to */
+/*                  bytes using a built-in function                      */
+/*                                                                       */
 /*************************************************************************/
 
 int interruptMessage = 0;
@@ -32,6 +46,8 @@ byte p[100];
 
 /*************************************************************************/
 /*                            function prototypes                        */
+/*                            *******************                        */
+/*                                                                       */
 /*************************************************************************/
 
 String getPfromPiston();
