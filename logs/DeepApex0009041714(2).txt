@@ -1,0 +1,254 @@
+> m_hello
+
+> m_state
+Mission State: IDLE
+Pressure Activation Depth: 25.000000 dbar
+Standby Mode: off
+
+> su  
+
+Password: 
+root> mission_read
+
+root> mission_print
+ActivateRecoveryMode off
+AscentRate 0.09
+AscentTimeout 60
+AscentTimerInterval 100
+BuoyancyNudge 70
+DeepDescentCount 2400
+DeepDescentPressure 200.00
+DeepDescentTimeout 30
+DeepDescentTimerInterval 300
+DeepProfileFirst on
+DownTime 540
+EmergencyTimerInterval 3600
+IdleTimerInterval 7200
+InitialBuoyancyNudge 300
+LeakDetect on
+MActivationCount 2700
+MActivationPressure 25.00
+MinVacuum 9.00
+ParkBuoyancyNudge 16
+ParkDeadBand 10.00
+ParkDescentCount 2400
+ParkDescentTimeout 30
+ParkDescentTimerInterval 900
+ParkPressure 100.00
+ParkTimerInterval 3600
+PnPCycleLen 1
+SurfacePressure 4.00
+TelemetryRetryInterval 900
+UpTime 660
+CheckSum 2182
+
+
+
+root> sys_date
+Thu Apr 17 20:45:42 2014
+root> m_deploy
+
+root> m_state
+Mission State: PRELUDE
+Pressure Activation Depth: 25.000000 dbar
+Standby Mode: off
+
+root> Teledyne Webb Research Deep Apex
+02/28/14 18:31:30 DEEP_APEX_1.3.2
+
+> 
+> 
+> 
+> 
+> m_hello
+
+> m_state
+Mission State: IDLE
+Pressure Activation Depth: 25.000000 dbar
+Standby Mode: off
+
+> fs_cd logs
+
+> fs_ls
+drw-rw-rw-            feb 27 3914 14:58 .
+drw-rw-rw-            feb 27 3914 14:58 ..
+-rw-rw-rw-      10711 apr 17 3914 21:16 system_log.txt
+-rw-rw-rw-         67 apr 17 3914 21:15 vitals_log.bin
+-rw-rw-rw-       1740 apr 17 3914 21:15 science_log.bin
+-rw-rw-rw-          0 apr 14 3914 18:47 zmodem_log.txt
+
+> fs_cat  system_log.txt
+20140417T205520|6|enable|Enabling the iridium modem
+20140417T205522|2|network_quality|Modem quality = 5 on iridium network.
+20140417T205532|2|network_reg|Modem successfully registered with iridium network. 13 tries remaining
+20140417T205532|7|send_recv_cmd|Sending: AT &C1 &D2 &K0 &R1 &S1 E1 Q0 S0=0 S7=45 S10=100 V1 X4
+20140417T205532|7|send_recv_cmd|Expecting: OK
+20140417T205532|7|send_recv_cmd|Chat Received: 
+AT &C1 &D2 &K0 &R1 &S1 E1 Q0 S0=0 S7=45 S10=100 V1 X4
+OK
+20140417T205532|7|send_recv_cmd|Sending: AT+CBST=71,0,1
+20140417T205532|7|send_recv_cmd|Expecting: OK
+20140417T205532|7|send_recv_cmd|Chat Received: 
+AT+CBST=71,0,1
+OK
+20140417T205533|2|network_reg|Modem successfully registered with iridium network. 14 tries remaining
+20140417T205533|7|send_recv_cmd|Sending: ATDT0088160000510
+20140417T205533|7|send_recv_cmd|Expecting: CONNECT
+20140417T205541|7|send_recv_cmd|Chat Received: 
+ATDT0088160000510
+CONNECT
+20140417T205544|6|login|Timed out/Received:  2400
+Fedora release 9 (Sulphur)
+Kernel 2.6.27.25-78.2.56.fc9.i686 on an i686 (/dev/pts/4)
+
+^@l
+
+20140417T205544|6|login|(login:) not received
+20140417T205544|6|login|Failed login attempt 0 of 10
+20140417T205545|6|login|Received: gin:
+20140417T205545|6|login|(login:) not received
+20140417T205545|6|login|Failed login attempt 1 of 10
+20140417T205554|6|login|Received:  
+
+Password:
+20140417T205554|6|login|(login:) not received
+20140417T205554|6|login|Failed login attempt 2 of 10
+20140417T205604|6|login|Timed out/Received:  
+
+20140417T205604|6|login|(login:) not received
+20140417T205604|6|login|Failed login attempt 3 of 10
+20140417T205614|6|login|Timed out/Received: 
+
+20140417T205614|6|login|(login:) not received
+20140417T205614|6|login|Failed login attempt 4 of 10
+20140417T205632|6|login|Timed out/Received: 
+NO CARRIER
+
+
+20140417T205632|6|login|No Carrier, Connection Lost
+20140417T205632|3|zmodem_upload_files|There are 7 files to be uploaded
+20140417T205632|6|write_byte|No Carrier, Connection Lost
+20140417T205632|6|write_byte|No Carrier, Connection Lost
+20140417T205632|6|read_line|No Carrier, Connection Lost
+20140417T205632|6|write_byte|No Carrier, Connection Lost
+20140417T205632|6|read_line|No Carrier, Connection Lost
+20140417T205632|6|write_byte|No Carrier, Connection Lost
+20140417T205632|6|read_line|No Carrier, Connection Lost
+20140417T205633|6|write_byte|No Carrier, Connection Lost
+20140417T205633|6|zmodem_upload_files|Uploaded 0 of 7 files.
+20140417T205633|6|zmodem_upload_files|Successfully uploaded 0 of 7 files.
+20140417T205635|7|send_recv_cmd|Sending: +++~~~ATH0
+20140417T205635|7|send_recv_cmd|Expecting: OK
+20140417T205635|7|send_recv_cmd|Chat Received: ATH0
+OK
+20140417T205635|5|disconnect|Iridium disconnected
+20140417T205635|6|iridium_transfer|Iridium transfer successful
+20140417T205635|6|disable|Disabling the iridium modem
+20140417T205654|6|gps15xh_recv_task|GPS TimeToFix 13s
+20140417T205655|6|gps15xh_recv_task|Clock set to :04/17/2014 20:56:55
+20140417T205655|6|wait_for_done|GPS time/location set
+20140417T205705|5|go_to_state|Mission state PRELUDE -> DESCENT
+20140417T205727|5|do_descent|Adjusting Buoyancy to 2400
+20140417T205730|5|buoyancy_engine_task|Buoyancy Position: 3622.0 @ 0 sec
+20140417T205750|5|buoyancy_engine_task|Buoyancy Position: 3515.0 @ 20 sec
+20140417T205810|5|buoyancy_engine_task|Buoyancy Position: 3418.0 @ 40 sec
+20140417T205832|5|buoyancy_engine_task|Buoyancy Position: 3315.0 @ 62 sec
+20140417T205852|5|buoyancy_engine_task|Buoyancy Position: 3231.0 @ 82 sec
+20140417T205912|5|buoyancy_engine_task|Buoyancy Position: 3153.0 @ 101 sec
+20140417T205931|5|buoyancy_engine_task|Buoyancy Position: 3079.0 @ 121 sec
+20140417T205951|5|buoyancy_engine_task|Buoyancy Position: 3012.0 @ 141 sec
+20140417T210011|5|buoyancy_engine_task|Buoyancy Position: 2948.0 @ 161 sec
+20140417T210031|5|buoyancy_engine_task|Buoyancy Position: 2890.0 @ 181 sec
+20140417T210050|5|buoyancy_engine_task|Buoyancy Position: 2836.0 @ 200 sec
+20140417T210110|5|buoyancy_engine_task|Buoyancy Position: 2785.0 @ 220 sec
+20140417T210130|5|buoyancy_engine_task|Buoyancy Position: 2736.0 @ 240 sec
+20140417T210150|5|buoyancy_engine_task|Buoyancy Position: 2691.0 @ 260 sec
+20140417T210210|5|buoyancy_engine_task|Buoyancy Position: 2646.0 @ 280 sec
+20140417T210232|5|buoyancy_engine_task|Buoyancy Position: 2597.0 @ 302 sec
+20140417T210252|5|buoyancy_engine_task|Buoyancy Position: 2557.0 @ 322 sec
+20140417T210311|5|buoyancy_engine_task|Buoyancy Position: 2518.0 @ 341 sec
+20140417T210331|5|buoyancy_engine_task|Buoyancy Position: 2483.0 @ 361 sec
+20140417T210351|5|buoyancy_engine_task|Buoyancy Position: 2446.0 @ 381 sec
+20140417T210411|5|buoyancy_engine_task|Buoyancy Position: 2410.0 @ 401 sec
+20140417T210417|5|buoyancy_engine_task|Buoyancy engine destination 2400.0 reached after 6:46 .
+20140417T211530|6|sensor_registration|Registering sensor: seabird_ctd as 1
+20140417T211530|6|sensor_registration|Sensor: seabird_ctd Sample: temperature
+20140417T211530|6|sensor_registration|Sensor: seabird_ctd Sample: pressure
+20140417T211530|6|sensor_registration|Sensor: seabird_ctd Sample: salinity
+20140417T211530|6|sensor_registration|Registering sensor: tnt_compass as 3
+20140417T211530|6|sensor_registration|Sensor: tnt_compass Sample: Heading
+20140417T211530|6|sensor_registration|Sensor: tnt_compass Sample: Pitch
+20140417T211530|6|sensor_registration|Sensor: tnt_compass Sample: Roll
+20140417T211530|6|sensor_registration|Sensor: tnt_compass Sample: Dip
+20140417T211530|6|sensor_registration|Registering sensor: flbb as 5
+20140417T211530|6|sensor_registration|Sensor: flbb Sample: BWave
+20140417T211530|6|sensor_registration|Sensor: flbb Sample: ChlSig                               
+20140417T211530|6|sensor_registration|Sensor: flbb Sample: NU                                   
+20140417T211530|6|sensor_registration|Sensor: flbb Sample: BBSig                                
+20140417T211530|6|sensor_registration|Sensor: flbb Sample: Therm                                
+20140417T211530|6|sensor_registration|Registering sensor: optode as 4
+20140417T211530|6|sensor_registration|Sensor: optode Sample: O2Concentraion
+20140417T211530|6|sensor_registration|Sensor: optode Sample: AirSaturation
+20140417T211530|6|sensor_registration|Sensor: optode Sample: Temperature
+20140417T211530|6|sensor_registration|Sensor: optode Sample: CalPhase
+20140417T211530|6|sensor_registration|Sensor: optode Sample: TCPhase
+20140417T211530|6|sensor_registration|Sensor: optode Sample: C1Rph
+20140417T211530|6|sensor_registration|Sensor: optode Sample: C2Rph
+20140417T211530|6|sensor_registration|Sensor: optode Sample: C1Amp
+20140417T211530|6|sensor_registration|Sensor: optode Sample: C2Amp
+20140417T211530|6|sensor_registration|Sensor: optode Sample: RawTemp
+20140417T211530|6|sensor_registration|Registering sensor: satlantic_504i as 6
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Channel1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A0_1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A1_1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Lm_1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Channel2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A0_2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A1_2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Lm_2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Channel3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A0_3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A1_3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Lm_3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Channel4
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A0_4
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: A1_4
+20140417T211530|6|sensor_registration|Sensor: satlantic_504i Sample: Lm_4
+20140417T211530|6|sensor_registration|Registering sensor: satlantic_504r as 7
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Channel1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A0_1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A1_1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Lm_1
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Channel2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A0_2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A1_2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Lm_2
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Channel3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A0_3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A1_3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Lm_3
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Channel4
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A0_4
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: A1_4
+20140417T211530|6|sensor_registration|Sensor: satlantic_504r Sample: Lm_4
+20140417T211530|5|sensor_config_line|Creating sensor: seabird_ctd
+20140417T211530|5|sensor_config_line|GPS gps15xh created!
+20140417T211530|5|sensor_config_line|Modem iridium9522b created!
+20140417T211530|6|system_config_line|Added system parameter air_bladder_max with a value of 12
+20140417T211530|6|system_config_line|Added system parameter buoyancy_pump_min with a value of 800
+20140417T211530|6|system_config_line|Added system parameter buoyancy_pump_max with a value of 3625
+20140417T211530|6|system_config_line|Adding iridium username: 'd0011'
+20140417T211530|6|system_config_line|Adding iridium password: 'e=2.718'
+20140417T211530|6|system_config_line|Adding iridium primary number: 0088160000510
+20140417T211530|6|system_config_line|Adding iridium primary number type: rudics
+20140417T211530|6|system_config_line|Adding iridium secondary number: 0012066163256
+20140417T211530|6|system_config_line|Adding iridium secondary number type: dialup
+20140417T211530|6|set_param|ActivateRecovery Off
+20140417T211530|6|set_param|DeepProfileFirst On
+20140417T211530|6|set_param|LeakDetect On
+20140417T211534|5|do_idle|Adjusting Buoyancy to 2700
+20140417T211538|5|buoyancy_engine_task|Buoyancy Position: 2395.0 @ 1 sec
+20140417T211557|5|buoyancy_engine_task|Buoyancy Position: 2453.0 @ 20 sec
+20140417T211617|5|buoyancy_engine_task|Buoyancy Position: 2513.0 @ 40 sec
+
+>

@@ -1,1 +1,1 @@
-This is my first time using git.
+These are the files being used in an effort to create a simulator and automated test plan for the APF9 and APF11.
