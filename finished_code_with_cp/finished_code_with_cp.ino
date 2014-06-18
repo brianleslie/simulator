@@ -27,6 +27,7 @@
 /*************************************************************************/
 
 int interruptMessage = 0;
+int cpMode = -1;
 
 String msg = "\rSBE 41CP UW. V 2.0\n\rS>";
 int msgLen = msg.length()+1;
@@ -206,15 +207,21 @@ void loop(){
       interruptMessage = 0;
       break;
   }
+  while(cpMode > 0){
+    String msgArray[4500];
+    int i = 0;
+    for(i = 0; i < 4500; i++){
+      delay(900);
+      msgArray[i] = getPTSfromPiston();
+    }
+  }
   if(Serial1.available()>0){
     String input = "";
     while(Serial1.available()>0){
-      digitalWrite(11, HIGH);
       char temp;
       temp = char(Serial1.read());
       input+=temp;
       delay(5);
-      digitalWrite(11, LOW);
     }
     if(input.equals("\r")){
       String cmdMode = "S>\n\r";
@@ -231,6 +238,13 @@ void loop(){
       Serial1.write(snBuffer, snLen);
     }
     else if(input.substring(0,11) == "startprofile"){
+      delay(2500);
+      String cp = "\n\rprofile started";
+      int cpLen = cp.length()+1;
+      byte cpBuffer[100];
+      cp.getBytes(cpBuffer, cpLen);
+      Serial1.write(cpBuffer, cpLen);
+      cpMode = 1;
     }
     else if((input.equals("qsr\r"))||(input.equals("qsr"))){
       String cmdMode = "\n\rpowering down";
@@ -252,7 +266,7 @@ void loop(){
 /* returns: an integer value that will be positive (1) if the pin is     */
 /*                 high and negative (-1) if the pin is low              */
 /*                                                                       */
-/* This function checks the logic level of a pin 6 times (once a second) */
+/* This function checks the logic level of a pin 6 times (once a 500ms)  */
 /* and determines if it is high or low                                   */
 /*                                                                       */
 /*************************************************************************/
@@ -274,7 +288,7 @@ int debounce(int pin){
     int j = 0;
     for(j = 0; j < 100000; j++){
       time = Timer1.read();
-      if (time > (timeLast + 99900)){
+      if (time > (timeLast + 49900)){
         Timer1.stop();
         break;
       }
