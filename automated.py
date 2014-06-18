@@ -409,11 +409,78 @@ def mission_print(readFile, writeFile):
                     f.write(')\n\n')
                     count = ""
                     mission_print = -1
-            if 'mission_print' in line:
+            if 'root> mission_print' in line:
                 mission_print = 1
                 commandLine = lineCount
 
-        
+
+###########################################################################
+#                                                                         #
+#                              mission_set                                #
+#                              ###########                                #
+#                                                                         #
+# parameters: readFile, file that contains test commands and responses    #
+#             writeFile, file that conatins the results of the tests      #
+#                                                                         #
+# returns: none                                                           #
+#                                                                         #
+# Opens the readFile then checks each line while incrementing lineCount.  #
+# If the mission_set command is found, it checks the rest of the line to  #
+# see what parameter is being set. It then checks the next line to see if #
+# the same parameter and value are repeated back. It ensures that the     #
+# correct parameters are there by comparing a string created throughout   #
+# the test like in the root_bang function.                                #
+#                                                                         #
+###########################################################################
+                          
+def mission_set(readFile, writeFile):
+    count = ""
+    parameter = ""
+    mission_set = -1
+    lineCount = 0
+    with open(readFile) as f:
+        for line in f:
+            lineCount = lineCount + 1
+            if mission_set > 0:
+                if 'mission_get' in line:
+                    mission_set = -1
+                if parameter in line:
+                    count += '0'
+                    if str(value) in line:
+                        count += '1'
+                        f = open(writeFile, 'a')
+                        temp = str(commandLine)
+                        if count == '01':
+                            f.write('at line ')
+                            f.write(temp)
+                            f.write(' mission_set: SUCCESS\n')
+                            f.write('\n')
+                            count = ""
+                            mission_set = -1
+                else:
+                    f = open(writeFile, 'a')
+                    temp = str(commandLine)
+                    f.write('at line ')
+                    f.write(temp)
+                    f.write(' mission_set: FAILED ......')
+                    f.write('(error in line ')
+                    f.write(str(lineCount-1))
+                    f.write(')\n\n')
+                    count = ""
+                    mission_set = -1
+            if 'root> mission_set' in line:
+                mission_set = 1
+                values = line.split()
+                parameter = str(values[2])
+                if parameter == ('ActiveRecoveryMode' or 'DeepProfileFirst' or 'LeakDetect'):
+                    value = str(values[3])
+                elif parameter == ('AscentRate' or 'DeepDescentPressure' or 'MActivationPressure' or 'MinVacuum' or 'ParkDeadBand' or 'ParkPressure' or 'SurfacePressure'):
+                    value = str(values[3])
+                else:
+                    value = str(values[3])
+                commandLine = lineCount
+
+
 ###########################################################################
 #                                                                         #
 #                                 m_state                                 #
@@ -478,7 +545,7 @@ def m_state(readFile, writeFile):
                     f.write(')\n\n')
                     count = ""
                     m_state = -1
-            if 'm_state' in line:
+            if 'root> m_state' in line:
                 m_state = 1
                 commandLine = lineCount
 
@@ -566,7 +633,7 @@ def m_deploy(readFile, writeFile):
                     error = 0
                     count = ""
                     m_deploy = -1
-            if 'm_deploy' in line:
+            if 'root> m_deploy' in line:
                 m_deploy = 1
                 commandLine = lineCount
 
@@ -591,10 +658,10 @@ def m_deploy(readFile, writeFile):
 def test(readFile, writeFile):
     root_bang(readFile, writeFile)
     mission_print(readFile, writeFile)
+    mission_set(readFile, writeFile)
     m_state(readFile, writeFile)
     m_deploy(readFile, writeFile)
 
 
 
 test('logs/DeepApex0009041714.txt', 'logs/testfile.txt')
-

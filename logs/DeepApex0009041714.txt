@@ -162,6 +162,11 @@ TelemetryRetryInterval 900
 UpTime 660
 CheckSum 2182
 
+root> mission_set MinVacuum 8.00
+MinVacuum 9.00
+
+root> mission_set DeepProfileFirst on
+DeepProfileFirst on
 
 
 root> mission_save
