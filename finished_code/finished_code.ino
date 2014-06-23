@@ -259,19 +259,26 @@ void loop(){
   }
   
   //check for a message in Serial1, it there is, create a blank string, then add each character in the 
-  //Serial1 input buffer to the input string
+  //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
+  //is actually sent
   if(Serial1.available()>0){
     String input = "";
-    while(Serial1.available()>0){
-      char temp;
-      temp = char(Serial1.read());
-      input+=temp;
-      delay(5);
+    int cr = 1;
+    while(cr == 1){
+      while(Serial1.available()>0){
+        char temp;
+        temp = char(Serial1.read());
+        input+=temp;
+        if(temp=='\r'){
+          cr = -1;
+        }
+        delay(5);
+      }
     }
     
     //if the input is a carriage return, send back the sbe command prompt (S>) as a series of byes
     if(input.equals("\r")){
-      String cmdMode = "S>\n\r";
+      String cmdMode = "\n\rS>";
       int cmdModeLen = cmdMode.length()+1;
       byte cmdModeBuffer[100];
       cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
@@ -279,18 +286,28 @@ void loop(){
     }
     
     //if the input is the ds command, send back all of the information as a series of bytes (uses generic
-    //info based on an actual seabird, can edit field in this string if necessary)
-    else if((input.equals("ds\r"))||(input.equals("ds"))){
-      String sn = "SBE 41CP UW V 2.0  SERIAL NO. 4242\n\rfirmware compilation date: 18 December 2007 09:20\n\rstop profile when pressure is less than = 2.0 decibars\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
-      int snLen = sn.length()+1;
-      byte snBuffer[1000];
-      sn.getBytes(snBuffer, snLen);
-      Serial1.write(snBuffer, snLen);
+    //info based on an actual seabird (can edit field in this string if necessary)
+    else if(input.equals("ds\r")){
+      String ds = "ds\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242\n\rfirmware compilation date: 18 December 2007 09:20\n\rstop profile when pressure is less than = 2.0 decibars\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
+      int dsLen = ds.length()+1;
+      byte dsBuffer[1000];
+      ds.getBytes(dsBuffer, dsLen);
+      Serial1.write(dsBuffer, dsLen);
+    }
+    
+    //if the input is the dc command, send back all of the information as a series of bytes (uses generic
+    //info based on an actual seabird (can edit field in this string if necessary)
+    else if(input.equals("dc\r")){
+      String dc = "dc\n\rSBE 41CP UW V 2.0  SERIAL NO. 3616\n\rtemperature:  19-dec-10    \n\rTA0 =  4.882851e-05    \n\rTA1 =  2.747638e-04    \n\rTA2 = -2.478284e-06    \n\rTA3 =  1.530870e-07\n\rconductivity:  19-dec-10    \n\rG = -1.013506e+00    \n\rH =  1.473695e-01    \n\rI = -3.584262e-04    \n\rJ =  4.733101e-05    \n\rCPCOR = -9.570001e-08    \n\rCTCOR =  3.250000e-06    \n\rWBOTC =  2.536509e-08\n\rpressure S/N = 3212552, range = 2900 psia:  14-dec-10    \n\rPA0 =  6.297445e-01    \n\rPA1 =  1.403743e-01    \n\rPA2 = -3.996384e-08    \n\rPTCA0 =  6.392568e+01    \n\rPTCA1 =  2.642689e-01    \n\rPTCA2 = -2.513274e-03    \n\rPTCB0 =  2.523900e+01    \n\rPTCB1 = -2.000000e-04    \n\rPTCB2 =  0.000000e+00    \n\rPTHA0 = -7.752968e+01    \n\rPTHA1 =  5.141199e-02    \n\rPTHA2 = -7.570264e-07    \n\rPOFFSET =  0.000000e+00\n\rS>";
+      int dcLen = dc.length()+1;
+      byte dcBuffer[1000];
+      dc.getBytes(dcBuffer, dcLen);
+      Serial1.write(dcBuffer, dcLen);
     }
     
     //if the input is qsr, send back that the seabird is powering down as a series of bytes 
     //(the simulator will just stay on and wait for the next interaction with the APFx)
-    else if((input.equals("qsr\r"))||(input.equals("qsr"))){
+    else if(input.equals("qsr\r")){
       String cmdMode = "\n\rpowering down";
       int cmdModeLen = cmdMode.length()+1;
       byte cmdModeBuffer[100];
