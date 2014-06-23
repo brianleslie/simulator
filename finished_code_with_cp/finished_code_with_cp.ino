@@ -211,7 +211,7 @@ void loop(){
     String msgArray[4500];
     int i = 0;
     for(i = 0; i < 4500; i++){
-      delay(900);
+      delay(700);
       msgArray[i] = getPTSfromPiston();
     }
   }
