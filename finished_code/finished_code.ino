@@ -263,16 +263,15 @@ void loop(){
   //is actually sent
   if(Serial1.available()>0){
     String input = "";
-    int cr = 1;
-    while(cr == 1){
-      while(Serial1.available()>0){
-        char temp;
-        temp = char(Serial1.read());
-        input+=temp;
-        if(temp=='\r'){
-          cr = -1;
-        }
-        delay(5);
+    while(Serial1.available()>0){
+      char temp;
+      temp = char(Serial1.read());
+      input+=temp;
+      if(temp=='\r'){
+        break;
+      }
+      else{
+        delay(1000);
       }
     }
     
