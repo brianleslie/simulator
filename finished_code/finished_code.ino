@@ -27,7 +27,6 @@
 /*************************************************************************/
 
 int interruptMessage = 0;
-int on = -1;
 
 String msg = "\rSBE 41CP UW. V 2.0\n\rS>";
 int msgLen = msg.length()+1;
@@ -203,122 +202,62 @@ void setup(){
 
 
 void loop(){
-  if(on){
-    //turn on status LED attached to pin 8
-    digitalWrite(8, HIGH);
-    
-    //interruptMessage will be zero unless changed during the ISR
-    switch(interruptMessage){
-      
-      //if it is 0, do nothing and just leave the loop
-      case 0:
-        break;
-        
-      //if it is 1, convert the global string msg to the global byte array cmdMode
-      //then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-      case 1:
-        msg.getBytes(cmdMode, msgLen);
-        Serial1.write(cmdMode, msgLen);
-        interruptMessage = 0;
-        break;
-        
-      //if it is 2, clear any junk analog values on A0 before getting the p,t,s value based on the analog 
-      //value on pin A0, set msg2 equal to this value, then convert the global string msg2 to the global 
-      //byte array pts, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-      case 2:
-        analogRead(A0);
-        msg2 = getPTSfromPiston();
-        msg2Len = msg2.length()+1;
-        msg2.getBytes(pts, msg2Len);
-        Serial1.write(pts, msg2Len);
-        interruptMessage = 0;
-        break;
-      
-      //if it is 3, clear any junk analog values on A0 before getting the p,t value based on the analog
-      //value on pin A0, set msg3 eqaul to this value, then convert the global string msg3 to the global 
-      //byte array pt, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-      case 3:
-        analogRead(A0);
-        msg3 = getPTfromPiston();
-        msg3Len = msg3.length()+1;
-        msg3.getBytes(pt, msg3Len);
-        Serial1.write(pt, msg3Len);
-        interruptMessage = 0;
-        break;
   
-<<<<<<< HEAD
-      //if it is 4, clear any junk analog values on A0 before getting the p value based on the analog
-      //value on pin A0, set msg4 eqaul to this value, then convert the global string msg4 to the global 
-      //byte array p, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-      case 4:
-        analogRead(A0);
-        msg4 = getPfromPiston();
-        msg4Len = msg4.length()+1;
-        msg4.getBytes(p, msg4Len);
-        Serial1.write(p, msg4Len);
-        interruptMessage = 0;
-        break;
-    }
+  //turn on status LED attached to pin 8
+  digitalWrite(8, HIGH);
+  
+  //interruptMessage will be zero unless changed during the ISR
+  switch(interruptMessage){
     
-    while(cpMode > 0){
-      String msgArray[4500];
-      int i = 0;
-      for(i = 0; i < 4500; i++){
-        delay(700);
-        msgArray[i] = getPTSfromPiston();
-      } 
-    }
+    //if it is 0, do nothing and just leave the loop
+    case 0:
+      break;
+      
+    //if it is 1, convert the global string msg to the global byte array cmdMode
+    //then send the array over Serial1, reset interruptMessage to 0, then leave the loop
+    case 1:
+      msg.getBytes(cmdMode, msgLen);
+      Serial1.write(cmdMode, msgLen);
+      interruptMessage = 0;
+      break;
+      
+    //if it is 2, clear any junk analog values on A0 before getting the p,t,s value based on the analog 
+    //value on pin A0, set msg2 equal to this value, then convert the global string msg2 to the global 
+    //byte array pts, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
+    case 2:
+      analogRead(A0);
+      msg2 = getPTSfromPiston();
+      msg2Len = msg2.length()+1;
+      msg2.getBytes(pts, msg2Len);
+      Serial1.write(pts, msg2Len);
+      interruptMessage = 0;
+      break;
     
-    //check for a message in Serial1, it there is, create a blank string, then add each character in the 
-    //Serial1 input buffer to the input string
-    if(Serial1.available()>0){
-      String input = "";
-      while(Serial1.available()>0){
-        char temp;
-        temp = char(Serial1.read());
-        input+=temp;
-        delay(5);
-      }
-      
-      //if the input is a carriage return, send back the sbe command prompt (S>) as a series of byes
-      if(input.equals("\r")){
-        String cmdMode = "S>\n\r";
-        int cmdModeLen = cmdMode.length()+1;
-        byte cmdModeBuffer[100];
-        cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
-        Serial1.write(cmdModeBuffer, cmdModeLen);
-      }
-      
-      //if the input is the ds command, send back all of the information as a series of bytes (uses generic
-      //info based on an actual seabird, can edit field in this string if necessary)
-      else if((input.equals("ds\r"))||(input.equals("ds"))){
-        String sn = "SBE 41CP UW V 2.0  SERIAL NO. 4242\n\rfirmware compilation date: 18 December 2007 09:20\n\rstop profile when pressure is less than = 2.0 decibars\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
-        int snLen = sn.length()+1;
-        byte snBuffer[1000];
-        sn.getBytes(snBuffer, snLen);
-        Serial1.write(snBuffer, snLen);
-      }
-      
-      else if(input.substring(0,11) == "startprofile"){
-        delay(2500);
-        String cp = "\n\rprofile started";
-        int cpLen = cp.length()+1;
-        byte cpBuffer[100];
-        cp.getBytes(cpBuffer, cpLen);
-        Serial1.write(cpBuffer, cpLen);
-        cpMode = 1;
-      }
-      
-      //if the input is qsr, send back that the seabird is powering down as a series of bytes 
-      //(the simulator will just stay on and wait for the next interaction with the APFx)
-      else if((input.equals("qsr\r"))||(input.equals("qsr"))){
-        String cmdMode = "\n\rpowering down";
-        int cmdModeLen = cmdMode.length()+1;
-        byte cmdModeBuffer[100];
-        cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
-        Serial1.write(cmdModeBuffer, cmdModeLen);
-      }
-=======
+    //if it is 3, clear any junk analog values on A0 before getting the p,t value based on the analog
+    //value on pin A0, set msg3 eqaul to this value, then convert the global string msg3 to the global 
+    //byte array pt, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
+    case 3:
+      analogRead(A0);
+      msg3 = getPTfromPiston();
+      msg3Len = msg3.length()+1;
+      msg3.getBytes(pt, msg3Len);
+      Serial1.write(pt, msg3Len);
+      interruptMessage = 0;
+      break;
+
+    //if it is 4, clear any junk analog values on A0 before getting the p value based on the analog
+    //value on pin A0, set msg4 eqaul to this value, then convert the global string msg4 to the global 
+    //byte array p, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
+    case 4:
+      analogRead(A0);
+      msg4 = getPfromPiston();
+      msg4Len = msg4.length()+1;
+      msg4.getBytes(p, msg4Len);
+      Serial1.write(p, msg4Len);
+      interruptMessage = 0;
+      break;
+  }
+  
   //check for a message in Serial1, it there is, create a blank string, then add each character in the 
   //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
   //is actually sent
@@ -374,14 +313,7 @@ void loop(){
       byte cmdModeBuffer[100];
       cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
       Serial1.write(cmdModeBuffer, cmdModeLen);
->>>>>>> 7b284637914cbd929eb0f64a5d9cfb449b6aef3a
     }
-  }
-  if((digitalRead(5)==HIGH)&&(digitalRead(6)==HIGH)&&(digitalRead(7)==HIGH)){
-    on = 1;
-  }
-  else{
-    on = -1;
   }
 }
 
@@ -714,5 +646,3 @@ String getPfromPiston(){
   //return the pressure string
   return pStr;
 }
-
-
