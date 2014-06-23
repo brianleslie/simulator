@@ -27,6 +27,7 @@
 /*************************************************************************/
 
 int interruptMessage = 0;
+int commandMode = -1;
 
 String msg = "\rSBE 41CP UW. V 2.0\n\rS>";
 int msgLen = msg.length()+1;
@@ -60,8 +61,8 @@ void loop();
 
 
 /*************************************************************************/
-/*                              checklines                               */
-/*                              **********                               */
+/*                              checkline                                */
+/*                              *********                                */
 /*                                                                       */
 /* Attached to a rising logic level on pin 2                             */
 /* paramaters: none                                                      */
@@ -112,6 +113,7 @@ void checkLine(){
   //if the request line is still high, choose message 1 (get serial number / firmware rev) 
   if(digitalRead(2)==HIGH){
     interruptMessage = 1;
+    commandMode = 1;
   }
   
   //if the request line is low, check the other two lines
@@ -258,21 +260,24 @@ void loop(){
       break;
   }
   
+  if(commandMode == 1){
+    detachInterrupt(0);
+  }
+  
   //check for a message in Serial1, it there is, create a blank string, then add each character in the 
   //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
-  //is actually sent
+  //is actually sent, if it is not the carriage return, wait for the next character
   if(Serial1.available()>0){
     String input = "";
-    int cr = 1;
-    while(cr == 1){
-      while(Serial1.available()>0){
-        char temp;
-        temp = char(Serial1.read());
-        input+=temp;
-        if(temp=='\r'){
-          cr = -1;
-        }
-        delay(5);
+    while(Serial1.available()>0){
+      char temp;
+      temp = char(Serial1.read());
+      input+=temp;
+      if(temp=='\r'){
+        break;
+      }
+      else{
+        delay(1000);
       }
     }
     
@@ -308,11 +313,14 @@ void loop(){
     //if the input is qsr, send back that the seabird is powering down as a series of bytes 
     //(the simulator will just stay on and wait for the next interaction with the APFx)
     else if(input.equals("qsr\r")){
-      String cmdMode = "\n\rpowering down";
+      String cmdMode = "qsr\n\rpowering down\n\rS>";
       int cmdModeLen = cmdMode.length()+1;
       byte cmdModeBuffer[100];
       cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
       Serial1.write(cmdModeBuffer, cmdModeLen);
+      commandMode = -1;
+      delay(100);
+      attachInterrupt(0, checkLine, RISING);
     }
   }
 }
