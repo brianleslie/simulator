@@ -258,7 +258,7 @@ void loop(){
       break;
   }
   
-  //check for a message in Serial1, it there is, create a blank string, then add each character in the 
+  //check for a message in Serial1, if there is, create a blank string, then add each character in the 
   //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
   //is actually sent
   if(Serial1.available()>0){
