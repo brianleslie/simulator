@@ -275,6 +275,7 @@ void loop(){
   if(commandMode == 1){
     detachInterrupt(0);
 >>>>>>> f6cd823e7f4049695b852a94e261866826883813
+<<<<<<< HEAD
   }
   
   while(cpMode == 1){
@@ -297,6 +298,8 @@ void loop(){
     }
     
     
+=======
+>>>>>>> 152f61a92a183191fd36c3d226e3934d6eedc449
   }
   
   //check for a message in Serial1, it there is, create a blank string, then add each character in the 
