@@ -262,9 +262,19 @@ void loop(){
       interruptMessage = 0;
       break;
   }
+<<<<<<< HEAD
+  while(cpMode > 0){
+    String msgArray[4500];
+    int i = 0;
+    for(i = 0; i < 4500; i++){
+      delay(700);
+      msgArray[i] = getPTSfromPiston();
+    }
+=======
   
   if(commandMode == 1){
     detachInterrupt(0);
+>>>>>>> f6cd823e7f4049695b852a94e261866826883813
   }
   
   while(cpMode == 1){
