@@ -31,6 +31,7 @@
 
 int interruptMessage = 0;
 int commandMode = -1;
+int cpMode = -1;
 
 String msg = "SBE 41CP UW. V 2.0\n\rS>";
 int msgLen = msg.length()+1;
@@ -266,6 +267,28 @@ void loop(){
     detachInterrupt(0);
   }
   
+  while(cpMode == 1){
+    long time;
+    Timer1.start();
+    long timeLast = Timer1.read();
+    int i = 0;
+    for(i = 0; i < 100000; i++){
+      time = Timer1.read();
+      if (time > (timeLast + 99900)){
+        Timer1.stop();
+        break;
+      }
+    }
+    int p = analogRead(A0);
+    String ptsStr = getPTSfromPiston();
+    
+    if(p > 1010){
+      break;
+    }
+    
+    
+  }
+  
   //check for a message in Serial1, it there is, create a blank string, then add each character in the 
   //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
   //is actually sent, if it is not the carriage return, wait for the next character
@@ -276,6 +299,7 @@ void loop(){
       temp = char(Serial1.read());
       input+=temp;
       if(temp=='\r'){
+        Serial.println(input);
         break;
       }
       else{
