@@ -262,22 +262,7 @@ void loop(){
       interruptMessage = 0;
       break;
   }
-<<<<<<< HEAD
-  while(cpMode > 0){
-    String msgArray[4500];
-    int i = 0;
-    for(i = 0; i < 4500; i++){
-      delay(700);
-      msgArray[i] = getPTSfromPiston();
-    }
-=======
-  
-  if(commandMode == 1){
-    detachInterrupt(0);
->>>>>>> f6cd823e7f4049695b852a94e261866826883813
-<<<<<<< HEAD
-  }
-  
+
   while(cpMode == 1){
     long time;
     Timer1.start();
@@ -296,10 +281,10 @@ void loop(){
     if(p > 1010){
       break;
     }
-    
-    
-=======
->>>>>>> 152f61a92a183191fd36c3d226e3934d6eedc449
+  }
+  
+  if(commandMode == 1){
+    detachInterrupt(0);
   }
   
   //check for a message in Serial1, it there is, create a blank string, then add each character in the 
