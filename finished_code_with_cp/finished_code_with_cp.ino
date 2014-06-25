@@ -210,7 +210,7 @@ void setup(){
 void loop(){
   
   //turn on status LED attached to pin 8
-  //digitalWrite(8, HIGH);
+  digitalWrite(8, HIGH);
   
   //interruptMessage will be zero unless changed during the ISR
   switch(interruptMessage){
@@ -263,28 +263,16 @@ void loop(){
       interruptMessage = 0;
       break;
   }
-
-  while(cpMode == 1){
-    //put into a timer function with variable delay in if(time ? (timerLast + x))
-    //dont even need this in here actually
-      long time;
-    Timer1.start();
-    long timeLast = Timer1.read();
-    int i = 0;
-    for(i = 0; i < 100000; i++){
-      time = Timer1.read();
-      if (time > (timeLast + 999900)){
-        Timer1.stop();
-        break;
-      }
-    }
-  }
   
+  //enter command mode
   if(commandMode == 1){
     
+    //ignore interrupts on pin 2 (only want to do this once)
     detachInterrupt(0);
     
+    //stay in command mode until the value of commandMode changes 
     while(commandMode == 1){
+      
       //check for a message in Serial1, it there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
       //is actually sent, if it is not the carriage return, wait for the next character
@@ -295,7 +283,7 @@ void loop(){
             char temp;
             temp = char(Serial1.read());
             input+=temp;
-            if(temp=='\r'){
+            if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
               break;
             }
           }
@@ -333,17 +321,27 @@ void loop(){
         //if the input is startprofileN, recognize that it is the start profile command,
         // then send back that the profile has started
         else if(input.equals("startprofile")){
-          String cp = "\n\rstartprofile\n\rprofile started, pump delay = 0 seconds";
+          String cp = "\n\rS>startprofile\n\rprofile started, pump delay = 0 seconds";
           int cpLen = cp.length()+1;
           byte cpBuffer[100];
           cp.getBytes(cpBuffer, cpLen);
           Serial1.write(cpBuffer, cpLen);
+          cpMode = 1;
         }
         
-        //if the input is qsr, send back that the seabird is powering down as a series of bytes 
-        //(the simulator will just stay on and wait for the next interaction with the APFx)
+        else if(input.equals("stopprofile")){
+          String exitcp = "\n\rS>stopprofile";
+          int exitcpLen = exitcp.length()+1;
+          byte exitcpBuffer[100];
+          exitcp.getBytes(exitcpBuffer, exitcpLen);
+          Serial1.write(exitcpBuffer, exitcpLen);
+          cpMode = -1;
+        }
+        
+        //if the input is qsr, send back that the seabird is powering down as a series of bytes, 
+        //leave command mode, and turn the interrupt back on (will send a junk value when turned back on)
         else if(input.equals("qsr\r")){
-          String cmdMode = "qsr\n\rpowering down\n\rS>";
+          String cmdMode = "\n\rS>qsr\n\rpowering down\n\rS>";
           int cmdModeLen = cmdMode.length()+1;
           byte cmdModeBuffer[100];
           cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
@@ -351,6 +349,21 @@ void loop(){
           commandMode = -1;
           delay(100);
           attachInterrupt(0, checkLine, RISING);
+        }
+        
+        if(cpMode == 1){
+          //change this code
+          long time;
+          Timer1.start();
+          long timeLast = Timer1.read();
+          int i = 0;
+          for(i = 0; i < 100000; i++){
+            time = Timer1.read();
+            if (time > (timeLast + 999900)){
+              Timer1.stop();
+              break;
+            }
+          }
         }
       }
     }
@@ -436,6 +449,7 @@ int debounce(int pin){
 /*************************************************************************/
 
 String getReadingFromPiston(int select){
+  
   //original calculated values as floats
   float pressure;
   float temperature;
@@ -447,7 +461,7 @@ String getReadingFromPiston(int select){
   long salinityLong;
   
   //the string representation of the pressure, temperature, salinity, all 3 together,
-  //just pressure and temperature, then the message to be sent
+  //a combination of pressure and temperature, then the message to be sent
   String pStr;
   String tStr;
   String sStr;
@@ -503,7 +517,7 @@ String getReadingFromPiston(int select){
   ptStr = pStr+", "+tStr+"\r\n";
   
   
-  //choose which string you want to return
+  //choose which string you want to return based on the select value
   switch(select){
     case 0:
       sendMessage = "";
@@ -521,7 +535,7 @@ String getReadingFromPiston(int select){
       sendMessage = (pStr+"\r\n");
       break;
   }
-  Serial.println(sendMessage);
+  
   //return the given string
   return sendMessage;
 }
