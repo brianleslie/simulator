@@ -32,6 +32,7 @@
 int interruptMessage = 0;
 int commandMode = -1;
 int cpMode = -1;
+long count = 0;
 
 String msg = "SBE 41CP UW. V 2.0\n\rS>";
 int msgLen = msg.length()+1;
@@ -264,6 +265,51 @@ void loop(){
       break;
   }
   
+  while(cpMode == 1){
+    //change this code
+    long time;
+    Timer1.start();
+    long timeLast = Timer1.read();
+    int i = 0;
+    for(i = 0; i < 100000; i++){
+      time = Timer1.read();
+      if (time > (timeLast + 999900)){
+        Timer1.stop();
+        count += 1;
+        break;
+      }
+    }
+    if(Serial1.available()>0){
+      String input = "";
+      while(1){
+        if(Serial1.available()>0){  
+          char temp;
+          temp = char(Serial1.read());
+          input+=temp;
+          if((input.equals('\r'))||(input.equals("stopprofile"))){
+            break;
+          }
+        }
+      }
+      if(input.equals("stopprofile")){
+        String exitcp = "\n\rS>stopprofile";
+        int exitcpLen = exitcp.length()+1;
+        byte exitcpBuffer[100];
+        exitcp.getBytes(exitcpBuffer, exitcpLen);
+        Serial1.write(exitcpBuffer, exitcpLen);
+        cpMode = -1;
+      }
+      else if(input.equals("\r")){
+        String cmdMode = "\n\rS>";
+        int cmdModeLen = cmdMode.length()+1;
+        byte cmdModeBuffer[100];
+        cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
+        Serial1.write(cmdModeBuffer, cmdModeLen);
+      }
+    }
+  }
+  
+  
   //enter command mode
   if(commandMode == 1){
     
@@ -338,6 +384,14 @@ void loop(){
           cpMode = -1;
         }
         
+        if(input.equals("binaverage\r")){
+          String binAvg = "\n\rS>samples =";
+          int binAvgLen = binAvg.length()+1;
+          byte binAvgBuffer[100];
+          binAvg.getBytes(binAvgBuffer, binAvgLen);
+          Serial1.write(binAvgBuffer, binAvgLen);
+        }
+        
         //if the input is qsr, send back that the seabird is powering down as a series of bytes, 
         //leave command mode, and turn the interrupt back on (will send a junk value when turned back on)
         else if(input.equals("qsr\r")){
@@ -349,21 +403,6 @@ void loop(){
           commandMode = -1;
           delay(100);
           attachInterrupt(0, checkLine, RISING);
-        }
-        
-        if(cpMode == 1){
-          //change this code
-          long time;
-          Timer1.start();
-          long timeLast = Timer1.read();
-          int i = 0;
-          for(i = 0; i < 100000; i++){
-            time = Timer1.read();
-            if (time > (timeLast + 999900)){
-              Timer1.stop();
-              break;
-            }
-          }
         }
       }
     }
