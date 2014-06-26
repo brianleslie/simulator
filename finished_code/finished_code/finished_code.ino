@@ -265,45 +265,33 @@ void loop(){
       break;
   }
   
-  while(cpMode == 1){
-    //change this code
-    delay(999);
-    count++;
-    if(Serial1.available()>0){
-      String input = "";
-      while(1){
-        if(Serial1.available()>0){  
-          char temp;
-          temp = char(Serial1.read());
-          input+=temp;
-          if((input.equals("\r"))||(input.equals("stopprofile"))){
-            break;
-          }
-        }
-      }
-      if(input.equals("stopprofile")){
-        String exitcp = "\n\rS>stopprofile";
-        int exitcpLen = exitcp.length()+1;
-        byte exitcpBuffer[100];
-        exitcp.getBytes(exitcpBuffer, exitcpLen);
-        Serial1.write(exitcpBuffer, exitcpLen);
-        cpMode = -1;
-      }
-      else if(input.equals("\r")){
-        String cmdMode = "\n\rS>";
-        int cmdModeLen = cmdMode.length()+1;
-        byte cmdModeBuffer[100];
-        cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
-        Serial1.write(cmdModeBuffer, cmdModeLen);
-      }
-    }
-  }
-  
   if(commandMode == 1){
     
     detachInterrupt(0);
     
     while(commandMode == 1){
+      
+      while(cpMode == 1){
+        delay(800);
+        analogRead(A0);
+        byte cpStrBuffer[100];
+        String cpStr = getReadingFromPiston(2);
+        int cpStrLen = cpStr.length()+1;
+        cpStr.getBytes(cpStrBuffer, cpStrLen);
+        Serial1.write(cpStrBuffer, cpStrLen);
+        if(Serial1.available()>0){
+          String input = "";
+          while(Serial1.available()>0){  
+            char temp;
+            temp = char(Serial1.read());
+            input+=temp;
+            if(input.equals("stopprofile")){
+              cpMode = -1;
+            }
+          }
+        }
+      }
+      
       //check for a message in Serial1, it there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
       //is actually sent, if it is not the carriage return, wait for the next character
@@ -352,11 +340,12 @@ void loop(){
         //if the input is startprofileN, recognize that it is the start profile command,
         // then send back that the profile has started
         else if(input.equals("startprofile")){
-          String cp = "\n\rstartprofile\n\rprofile started, pump delay = 0 seconds";
+          String cp = "\n\rstartprofile\n\rprofile started, pump delay = 0 seconds\n\rS>";
           int cpLen = cp.length()+1;
           byte cpBuffer[100];
           cp.getBytes(cpBuffer, cpLen);
           Serial1.write(cpBuffer, cpLen);
+          attachInterrupt(0, checkLine, RISING);
           cpMode = 1;
         }
         
@@ -366,6 +355,7 @@ void loop(){
           byte exitcpBuffer[100];
           exitcp.getBytes(exitcpBuffer, exitcpLen);
           Serial1.write(exitcpBuffer, exitcpLen);
+          detachInterrupt(0);
           cpMode = -1;
         }
         
