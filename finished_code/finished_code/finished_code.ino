@@ -32,7 +32,17 @@
 int interruptMessage = 0;
 int commandMode = -1;
 int cpMode = -1;
-long count;
+int count;
+
+float maxPress = 0;
+float minPress = 10000;
+int nBins;
+int binsUsed = 0;
+int bins = 0;
+int da = -1;
+int inc = 0;
+int last = -1;
+int first = -1;
 
 String msg = "SBE 41CP UW. V 2.0\n\rS>";
 int msgLen = msg.length()+1;
@@ -59,6 +69,7 @@ byte p[100];
 
 String getReadingFromPiston(int);
 String floatToString(float);
+String binaverage();
 int debounce(int);
 void checkLine();
 void runTimer(int);
@@ -211,7 +222,7 @@ void setup(){
 void loop(){
   
   //turn on status LED attached to pin 8
-  //digitalWrite(8, HIGH);
+  digitalWrite(8, HIGH);
   
   //interruptMessage will be zero unless changed during the ISR
   switch(interruptMessage){
@@ -272,13 +283,14 @@ void loop(){
     while(commandMode == 1){
       
       while(cpMode == 1){
-        delay(800);
+        delay(900);
         analogRead(A0);
         byte cpStrBuffer[100];
         String cpStr = getReadingFromPiston(2);
         int cpStrLen = cpStr.length()+1;
         cpStr.getBytes(cpStrBuffer, cpStrLen);
         Serial1.write(cpStrBuffer, cpStrLen);
+        count+=1;
         if(Serial1.available()>0){
           String input = "";
           while(Serial1.available()>0){  
@@ -358,6 +370,43 @@ void loop(){
           detachInterrupt(0);
           cpMode = -1;
         }
+        
+        else if(input.equals("binaverage\r")){
+          nBins = (int(maxPress)/2) + 1;
+          String binavg = "\n\rS>binaverage\n\rsamples = "+String(count)+", maxPress = "+floatToString(maxPress)+"\n\rrd: 0\n\ravg: 0\n\n\rdone, nbins = "+String(nBins)+"\n\rS>";
+          int binavgLen = binavg.length()+1;
+          byte binavgBuffer[100];
+          binavg.getBytes(binavgBuffer, binavgLen);
+          Serial1.write(binavgBuffer, binavgLen);
+          da = 1;
+        }
+        
+        else if(input.equals("da\r")){
+          first = 1;
+          int ii;
+          for(ii=0; ii < nBins; ii++){
+            if(ii == nBins - 1){
+              last = 1;
+            }
+            String bin = binaverage();
+            int binLen = bin.length()+1;
+            byte binBuffer[100];
+            bin.getBytes(binBuffer, binLen);
+            Serial1.write(binBuffer, binLen);
+          }
+          String complete = "\n\rupload complete\n\rS>";
+          int completeLen = complete.length()+1;
+          byte completeBuffer[100];
+          complete.getBytes(completeBuffer, completeLen);
+          Serial1.write(completeBuffer, completeLen);
+          maxPress = 0;
+          minPress = 10000;
+          nBins = 0;
+          da = -1;
+          inc = 0;
+          count = 0;
+        }
+          
         
         //if the input is qsr, send back that the seabird is powering down as a series of bytes 
         //(the simulator will just stay on and wait for the next interaction with the APFx)
@@ -476,7 +525,6 @@ String getReadingFromPiston(int select){
   
   //read an analog value on pin 1, use it for the calculations 1023=2.56V
   int voltage = analogRead(A0);
-  Serial.println(String(voltage));
   
   //technically out of range, but use it to go to a pressure greater than 2000dbar, min change = 5dbar
   if(voltage<72){
@@ -501,6 +549,14 @@ String getReadingFromPiston(int select){
   //adjust for hardware that amplifies the signal by approximately 1.1, then convert the float 
   //to a string using the floatToString function
   pressure = pressure * 1.08;
+  if(cpMode == 1){
+    if(pressure >= maxPress){
+      maxPress = pressure;
+    }
+    if(pressure <= minPress){
+      minPress = pressure;
+    }
+  }
   pStr = floatToString(pressure);
   
   //calculate a float temperature value based on the pressure, assume linearity with the maximum
@@ -540,7 +596,6 @@ String getReadingFromPiston(int select){
       sendMessage = (pStr+"\r\n");
       break;
   }
-  Serial.println(sendMessage);
   //return the given string
   return sendMessage;
 }
@@ -573,9 +628,7 @@ String floatToString(float aFloat){
   floatLong = 1000*aFloat;
   floatInt = floatLong/1000;
   floatDec = floatLong - (floatInt*1000);
-  Serial.println(String(floatInt));
-  Serial.println(String(floatDec));
-  
+ 
   //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
   if(floatDec<10){
     floatStr = String(floatInt)+".00"+String(floatDec);
@@ -615,3 +668,54 @@ void runTimer(int timeOut){
     }
   }
 }
+
+/*************************************************************************/
+/*                              binaverage                               */
+/*                              **********                               */
+/*                                                                       */
+/* parameters: none                                                      */
+/* returns: String representing the bin in the format of avg P, avg T,   */
+/*              avg S, then the number of bins                           */
+/*                                                                       */
+/* This function runs a timer for the given interval of time, uses code  */
+/* from TimerOne.h                                                       */
+/*                                                                       */
+/*************************************************************************/
+
+String binaverage(){
+  String returnStr;
+  float pressure = 0;
+  float temperature;
+  float salinity;
+  
+  pressure += (inc*2);
+  pressure += float((float(random(100,500))/float(1500)));
+  pressure -= float(float((random(200,600))/float(1600)));
+  temperature = 20-(((pressure)*(15.00))/2000.00);
+  salinity = (((pressure)*(4.00))/2000) + 33.5;
+  
+  bins = 1;
+  
+  if(binsUsed > (count - 2)){
+    Serial.println(count);
+    Serial.println(binsUsed);
+    bins=0;
+  } 
+  
+  if(last == 1){
+    bins = count - binsUsed;
+  }
+  
+  binsUsed+=bins;
+  
+  if((pressure <= minPress)||(bins==0)){
+    pressure = 0;
+    temperature = 0;
+    salinity = 0;
+    bins = 0;
+  }
+  inc += 1;
+
+  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(bins)+"\n\r";
+  return returnStr;
+  }
