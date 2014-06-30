@@ -1,4 +1,15 @@
 /*************************************************************************/
+/*                             finished_code.ino                         */
+/*                             *****************                         */
+/*                                                                       */
+/* Written by: Sean P. Murphy                                            */
+/*                                                                       */
+/*************************************************************************/
+
+
+
+
+/*************************************************************************/
 /*                              TimerOne.h                               */
 /*                              **********                               */
 /*                                                                       */
@@ -17,6 +28,31 @@
 /*                                                                       */
 /* commandMode: an int that represents whether interrupts are disabled,  */
 /*                  a negative value means interrupts are on (default)   */
+/*                                                                       */
+/* cpMode: an int that represents whether the simulator is in continuous */
+/*                  profiling, a negative value means no (default)       */
+/*                                                                       */
+/* count: an int that represents the number of samples taken while in    */
+/*                  continuous profile mode                              */
+/*                                                                       */
+/* maxPress, minPress: float values that represent that max and min      */
+/*                  pressure calculated during continuous profiling      */
+/*                                                                       */
+/* nBins, samplesLeft: int values that represent the total number of     */
+/*                  bins and the number of samples left after            */
+/*                  subtracting the samples used for one bin             */
+/*                                                                       */
+/* da: an int that represents whether a bin average has been taken, if a */
+/*                  binaverage hasn't been calculated, it's -1 (default) */
+/*                                                                       */
+/* inc: an int used to increment the pressure value for the calculated   */
+/*                  data of continuous profiling, is incremented in the  */
+/*                  binaverage function then reset after dumping the     */
+/*                  data from the profile                                */
+/*                                                                       */
+/* last, first: int values used to indicate whether the given sample is  */
+/*                  the first or last sample of the profile. both are    */
+/*                  -1 by default, and will be set to 1 once per profile */
 /*                                                                       */
 /* msg, msg2, msg3, msg4: Strings to be sent over serial to the APFx     */
 /*                                                                       */
@@ -37,8 +73,7 @@ int count;
 float maxPress = 0;
 float minPress = 10000;
 int nBins;
-int binsUsed = 0;
-int bins = 0;
+int samplesLeft;
 int da = -1;
 int inc = 0;
 int last = -1;
@@ -68,12 +103,19 @@ byte p[100];
 /*************************************************************************/
 
 String getReadingFromPiston(int);
+
 String floatToString(float);
+
 String binaverage();
+
 int debounce(int);
+
 void checkLine();
+
 void runTimer(int);
+
 void setup();
+
 void loop();
 
 
@@ -276,21 +318,52 @@ void loop(){
       break;
   }
   
+  /*************************************************************************/
+  /*                             command mode                              */
+  /*************************************************************************/
+  
+  //command mode is turned on by the ISR checkLine, it will disable external interrupts
+  //on pin 2 at the beginning and will handle the data being transmitted and received
+  //over the serial ports. To be in continuous profiling mode, the simulator needs to be
+  //in command mode, so the loop for continuous profiling is also handled here
   if(commandMode == 1){
     
+    //ignore the interrupts on pin 2 once at the beginning
     detachInterrupt(0);
     
+    /*************************************************************************/
+    /*                      continuous profiling mode                        */
+    /*************************************************************************/
+    
+    //enter the while loop to stay in command mode
     while(commandMode == 1){
       
+      //contiuous profiling mode is turned on by the startprofile command over serial
       while(cpMode == 1){
-        delay(900);
+        
+        //only take sample once every 1 sec (delay .95 sec)
+        delay(950);
+        
+        //clear out any junk value on pin A0
         analogRead(A0);
+        
+        //create an array of bytes (a PTS reading) based on the value of the pin A0
+        //then send it over Serial1
         byte cpStrBuffer[100];
         String cpStr = getReadingFromPiston(2);
         int cpStrLen = cpStr.length()+1;
         cpStr.getBytes(cpStrBuffer, cpStrLen);
         Serial1.write(cpStrBuffer, cpStrLen);
+        
+        //record that you have taken 1 sample
         count+=1;
+        
+        //leave continuous profiling mode if the pressure is less than 2 dbar
+        if(minPress<=2){
+          cpMode = -1;
+        }
+        
+        //leave continuous profiling mode if the stopprofile command is received
         if(Serial1.available()>0){
           String input = "";
           while(Serial1.available()>0){  
@@ -349,8 +422,9 @@ void loop(){
           Serial1.write(dcBuffer, dcLen);
         }
         
-        //if the input is startprofileN, recognize that it is the start profile command,
-        // then send back that the profile has started
+        //if the input is startprofile, recognize that it is the start profile command,
+        //then send back that the profile has started, reattach interrupt to pin2, and 
+        //turn on continuous profiling mode
         else if(input.equals("startprofile")){
           String cp = "\n\rstartprofile\n\rprofile started, pump delay = 0 seconds\n\rS>";
           int cpLen = cp.length()+1;
@@ -361,6 +435,9 @@ void loop(){
           cpMode = 1;
         }
         
+        //if the input is stopprofile, recognize that it is the stop profile command,
+        //then send back that the profile has stopped, ignore the external interrupt
+        //on pin2, and turn off continuous profiling mode
         else if(input.equals("stopprofile")){
           String exitcp = "\n\rS>stopprofile";
           int exitcpLen = exitcp.length()+1;
@@ -371,6 +448,9 @@ void loop(){
           cpMode = -1;
         }
         
+        //if the input is binaverage, return the values parsed from the data sent
+        //during continuous profiling mode. set da to 1 which will allow for the
+        //da command to be run (make sure there is actual data to dump when requested)
         else if(input.equals("binaverage\r")){
           nBins = (int(maxPress)/2) + 1;
           String binavg = "\n\rS>binaverage\n\rsamples = "+String(count)+", maxPress = "+floatToString(maxPress)+"\n\rrd: 0\n\ravg: 0\n\n\rdone, nbins = "+String(nBins)+"\n\rS>";
@@ -380,8 +460,12 @@ void loop(){
           Serial1.write(binavgBuffer, binavgLen);
           da = 1;
         }
-        
-        else if(input.equals("da\r")){
+
+        //if the inpt is da, send bins in the format "p, t, s, b" (pressure,
+        //temperature, salinity, number of samples) over Serial1. then send that 
+        //the upload is done. then reinitialize all of the global variables used 
+        //for bin averaging then dumping the values        
+        else if((input.equals("da\r"))&&(da==1)){
           first = 1;
           int ii;
           for(ii=0; ii < nBins; ii++){
@@ -630,6 +714,7 @@ String floatToString(float aFloat){
   floatDec = floatLong - (floatInt*1000);
  
   //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
+  // or losing two 0's in a number less than 100 (i.e. get 009 instead of 9)
   if(floatDec<10){
     floatStr = String(floatInt)+".00"+String(floatDec);
   }
@@ -683,39 +768,68 @@ void runTimer(int timeOut){
 /*************************************************************************/
 
 String binaverage(){
+  
+  //string containing the p,t,s,b values
   String returnStr;
+  
+  //float values
   float pressure = 0;
   float temperature;
   float salinity;
   
+  //int value
+  int samplesUsed = 0;
+  
+  //create a pressure value that increases by approximately 2
   pressure += (inc*2);
   pressure += float((float(random(100,500))/float(1500)));
   pressure -= float(float((random(200,600))/float(1600)));
+  
+  //calculate temperature and salinty values the same way as usual
   temperature = 20-(((pressure)*(15.00))/2000.00);
   salinity = (((pressure)*(4.00))/2000) + 33.5;
   
-  bins = 1;
-  
-  if(binsUsed > (count - 2)){
-    Serial.println(count);
-    Serial.println(binsUsed);
-    bins=0;
-  } 
-  
-  if(last == 1){
-    bins = count - binsUsed;
+  //if the loop is in its first iteration, the total number of samples
+  //is the number of samples originally taken (count)
+  if(first == 1){
+    samplesLeft = count;
+    first = -1;
   }
   
-  binsUsed+=bins;
+  //calculate a random value for the number of samples per bin
+  samplesUsed = ((samplesLeft%5) + random(0,30));
   
-  if((pressure <= minPress)||(bins==0)){
+  //ensure that there are not too many samples used
+  if(samplesLeft-samplesUsed <= 0){
+    samplesUsed = 0;
+  }
+  
+  //use the remaining number of samples for the last bin
+  if(last==1){
+    samplesUsed = samplesLeft;
+    last = -1;
+  }
+  
+  //if the incremented value of pressure is lower than the lowest measured value
+  // then set all of the values equal to zero. or if there are no samples, set all
+  // of the values for that bin equal to zero
+  if((pressure <= minPress)||(samplesUsed==0)){
     pressure = 0;
     temperature = 0;
     salinity = 0;
-    bins = 0;
+    samplesUsed = 0;
   }
+  
+  //increment the pressure by 2 (1 pressure increment = inc *2)
   inc += 1;
+  
+  //decrease the number of samples remaining
+  samplesLeft -= samplesUsed;
 
-  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(bins)+"\n\r";
+  //create the string to be returned in the format:
+  //"pppp.pppp, tt.tttt, ss.ssss, bb"
+  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(samplesUsed)+"\n\r";
+  
+  //return the string
   return returnStr;
   }
