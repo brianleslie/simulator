@@ -103,19 +103,12 @@ byte p[100];
 /*************************************************************************/
 
 String getReadingFromPiston(int);
-
 String floatToString(float);
-
 String binaverage();
-
 int debounce(int);
-
 void checkLine();
-
 void runTimer(int);
-
 void setup();
-
 void loop();
 
 
