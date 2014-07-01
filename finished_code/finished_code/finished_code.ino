@@ -427,7 +427,7 @@ void loop(){
         //info based on an actual seabird (can edit field in this string if necessary)
         else if(input.equals("dc\r")){
           String dc = "dc\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242\n\rtemperature:  19-dec-10    "
-          \n\rTA0 =  4.882851e-05    \n\rTA1 =  2.747638e-04    \n\rTA2 = -2.478284e-06    "
+          "\n\rTA0 =  4.882851e-05    \n\rTA1 =  2.747638e-04    \n\rTA2 = -2.478284e-06    "
           "\n\rTA3 =  1.530870e-07\n\rconductivity:  19-dec-10    \n\rG = -1.013506e+00    "
           "\n\rH =  1.473695e-01    \n\rI = -3.584262e-04    \n\rJ =  4.733101e-05    "
           "\n\rCPCOR = -9.570001e-08    \n\rCTCOR =  3.250000e-06    \n\rWBOTC =  2.536509e-08"
