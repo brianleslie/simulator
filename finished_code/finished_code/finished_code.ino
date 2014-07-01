@@ -188,7 +188,6 @@ void checkLine(){
     }
     
     //else don't do anything
-    
     else{
     }
   }
@@ -324,13 +323,13 @@ void loop(){
     //ignore the interrupts on pin 2 once at the beginning
     detachInterrupt(0);
     
-    /*************************************************************************/
-    /*                      continuous profiling mode                        */
-    /*************************************************************************/
-    
     //enter the while loop to stay in command mode
     while(commandMode == 1){
       
+      /*************************************************************************/
+      /*                      continuous profiling mode                        */
+      /*************************************************************************/
+        
       //contiuous profiling mode is turned on by the startprofile command over serial
       while(cpMode == 1){
         
@@ -370,6 +369,11 @@ void loop(){
         }
       }
       
+      /*************************************************************************/
+      /*                     end continuous profiling mode                     */
+      /*************************************************************************/
+        
+      
       //check for a message in Serial1, it there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
       //is actually sent, if it is not the carriage return, wait for the next character
@@ -396,9 +400,16 @@ void loop(){
         }
         
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
-        //info based on an actual seabird (can edit field in this string if necessary)
+        //info based on an actual seabird, can edit field in this string if necessary)
         else if(input.equals("ds\r")){
-          String ds = "ds\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242\n\rfirmware compilation date: 18 December 2007 09:20\n\rstop profile when pressure is less than = 2.0 decibars\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
+          String ds = "ds\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242"
+          "\n\rfirmware compilation date: 18 December 2007 09:20"
+          "\n\rstop profile when pressure is less than = 2.0 decibars"
+          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0"
+          "\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
+          "\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20"
+          "\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins"
+          "\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
           int dsLen = ds.length()+1;
           byte dsBuffer[1000];
           ds.getBytes(dsBuffer, dsLen);
@@ -408,7 +419,16 @@ void loop(){
         //if the input is the dc command, send back all of the information as a series of bytes (uses generic
         //info based on an actual seabird (can edit field in this string if necessary)
         else if(input.equals("dc\r")){
-          String dc = "dc\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242\n\rtemperature:  19-dec-10    \n\rTA0 =  4.882851e-05    \n\rTA1 =  2.747638e-04    \n\rTA2 = -2.478284e-06    \n\rTA3 =  1.530870e-07\n\rconductivity:  19-dec-10    \n\rG = -1.013506e+00    \n\rH =  1.473695e-01    \n\rI = -3.584262e-04    \n\rJ =  4.733101e-05    \n\rCPCOR = -9.570001e-08    \n\rCTCOR =  3.250000e-06    \n\rWBOTC =  2.536509e-08\n\rpressure S/N = 3212552, range = 2900 psia:  14-dec-10    \n\rPA0 =  6.297445e-01    \n\rPA1 =  1.403743e-01    \n\rPA2 = -3.996384e-08    \n\rPTCA0 =  6.392568e+01    \n\rPTCA1 =  2.642689e-01    \n\rPTCA2 = -2.513274e-03    \n\rPTCB0 =  2.523900e+01    \n\rPTCB1 = -2.000000e-04    \n\rPTCB2 =  0.000000e+00    \n\rPTHA0 = -7.752968e+01    \n\rPTHA1 =  5.141199e-02    \n\rPTHA2 = -7.570264e-07    \n\rPOFFSET =  0.000000e+00\n\rS>";
+          String dc = "dc\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242\n\rtemperature:  19-dec-10    "
+          "\n\rTA0 =  4.882851e-05    \n\rTA1 =  2.747638e-04    \n\rTA2 = -2.478284e-06    "
+          "\n\rTA3 =  1.530870e-07\n\rconductivity:  19-dec-10    \n\rG = -1.013506e+00    "
+          "\n\rH =  1.473695e-01    \n\rI = -3.584262e-04    \n\rJ =  4.733101e-05    "
+          "\n\rCPCOR = -9.570001e-08    \n\rCTCOR =  3.250000e-06    \n\rWBOTC =  2.536509e-08"
+          "\n\rpressure S/N = 3212552, range = 2900 psia:  14-dec-10    \n\rPA0 =  6.297445e-01    "
+          "\n\rPA1 =  1.403743e-01    \n\rPA2 = -3.996384e-08    \n\rPTCA0 =  6.392568e+01    "
+          "\n\rPTCA1 =  2.642689e-01    \n\rPTCA2 = -2.513274e-03    \n\rPTCB0 =  2.523900e+01    "
+          "\n\rPTCB1 = -2.000000e-04    \n\rPTCB2 =  0.000000e+00    \n\rPTHA0 = -7.752968e+01    "
+          "\n\rPTHA1 =  5.141199e-02    \n\rPTHA2 = -7.570264e-07    \n\rPOFFSET =  0.000000e+00\n\rS>";
           int dcLen = dc.length()+1;
           byte dcBuffer[1000];
           dc.getBytes(dcBuffer, dcLen);
@@ -443,7 +463,7 @@ void loop(){
         
         //if the input is binaverage, return the values parsed from the data sent
         //during continuous profiling mode. set da to 1 which will allow for the
-        //da command to be run (make sure there is actual data to dump when requested)
+        //da command to be run (makes sure there is actual data to dump when requested)
         else if(input.equals("binaverage\r")){
           nBins = (int(maxPress)/2) + 1;
           String binavg = "\n\rS>binaverage\n\rsamples = "+String(count)+", maxPress = "+floatToString(maxPress)+"\n\rrd: 0\n\ravg: 0\n\n\rdone, nbins = "+String(nBins)+"\n\rS>";
@@ -457,7 +477,7 @@ void loop(){
         //if the inpt is da, send bins in the format "p, t, s, b" (pressure,
         //temperature, salinity, number of samples) over Serial1. then send that 
         //the upload is done. then reinitialize all of the global variables used 
-        //for bin averaging then dumping the values        
+        //for bin averaging and dumping the values        
         else if((input.equals("da\r"))&&(da==1)){
           first = 1;
           int ii;
@@ -755,8 +775,21 @@ void runTimer(int timeOut){
 /* returns: String representing the bin in the format of avg P, avg T,   */
 /*              avg S, then the number of bins                           */
 /*                                                                       */
-/* This function runs a timer for the given interval of time, uses code  */
-/* from TimerOne.h                                                       */
+/* This function will create a string that represents the data requested */
+/* by the binaverage command of the APFx. The function creates a         */
+/* pressure value that is approximately 2 greater than the last, then    */
+/* calculates the temperature and salinity according to the same         */
+/* algorithm as getReadingFromPiston. It also calculates a random number */
+/* of samples per bin between 0 and 35. It handles the cases of the      */
+/* first and last bin differently. The first bin is used to initialize   */
+/* total number of bins available. The last bin is used to ensure that   */
+/* the sum of the random bins equals the total number of bins. If the    */
+/* pressure calculated in the function is less than the minimum pressure */
+/* calculated or if the number of samples in a bin is 0, then all of the */
+/* other fields are equal to 0. It then returns a string value that      */
+/* matches the expected output ("pppp.pppp, tt.tttt, ss.ssss, bb"). This */
+/* function is meant to be called repeatedly when sending data to the    */
+/* APFx after receiving the 'da' command.                                */
 /*                                                                       */
 /*************************************************************************/
 
