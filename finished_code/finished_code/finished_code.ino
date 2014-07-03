@@ -63,6 +63,9 @@
 /*                  created by converting their corresponding strings to */
 /*                  bytes using a built-in function                      */
 /*                                                                       */
+/* iceAvoidance: an int that represents which ice avoidance protocol is  */
+/*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
+/*                                                                       */
 /*************************************************************************/
 
 int interruptMessage = 0;
@@ -490,6 +493,8 @@ void loop(){
         else if((input.equals("da\r"))&&(da==1)){
           first = 1;
           int ii;
+          
+          //send all of the samples over serial
           for(ii=0; ii < nBins; ii++){
             if(ii == nBins - 1){
               last = 1;
@@ -500,11 +505,15 @@ void loop(){
             bin.getBytes(binBuffer, binLen);
             Serial1.write(binBuffer, binLen);
           }
+          
+          //send upload complete at end of all samples
           String complete = "\n\rupload complete\n\rS>";
           int completeLen = complete.length()+1;
           byte completeBuffer[100];
           complete.getBytes(completeBuffer, completeLen);
           Serial1.write(completeBuffer, completeLen);
+          
+          //reinitalize values
           maxPress = 0;
           minPress = 10000;
           nBins = 0;
@@ -729,6 +738,7 @@ String getReadingFromPiston(int select){
       minPress = pressure;
     }
   }
+  
   pStr = floatToString(pressure);
   
   //determine if in ice detect, ice cap, ice breakup, or normal mode
@@ -787,6 +797,7 @@ String getReadingFromPiston(int select){
       sendMessage = (pStr+"\r\n");
       break;
   }
+  
   //return the given string
   return sendMessage;
 }
