@@ -96,6 +96,8 @@ int msg4Len;
 byte p[100];
 
 
+int iceAvoidance = -1;
+
 /*************************************************************************/
 /*                            function prototypes                        */
 /*                            *******************                        */
@@ -524,6 +526,22 @@ void loop(){
           delay(100);
           attachInterrupt(0, checkLine, RISING);
         }
+        else if(input.equals("ia\r")){
+          iceAvoidance = 1;
+          String iceMode = " ice avoidance on\n\rS>";
+          int iceModeLen = iceMode.length()+1;
+          byte iceModeBuffer[100];
+          iceMode.getBytes(iceModeBuffer, iceModeLen);
+          Serial1.write(iceModeBuffer, iceModeLen);
+        }
+        else if(input.equals("ia off\r")){
+          iceAvoidance = -1;
+          String iceModeOff = " ice avoidance off\n\rS>";
+          int iceModeOffLen = iceModeOff.length()+1;
+          byte iceModeOffBuffer[100];
+          iceModeOff.getBytes(iceModeOffBuffer, iceModeOffLen);
+          Serial1.write(iceModeOffBuffer, iceModeOffLen);
+        }
       }
     }
   }
@@ -666,7 +684,12 @@ String getReadingFromPiston(int select){
   //calculate a float temperature value based on the pressure, assume linearity with the maximum
   //temperature of 20 deg C and minimum of 5 deg C. then convert the float 
   //to a string using the floatToString function
-  temperature = 20-(((pressure)*(15.00))/2000.00);
+  if(iceAvoidance == -1){ 
+    temperature = 20.00-float((((pressure)*(15.00))/2000.00));
+  }
+  else if(iceAvoidance == 1){
+    temperature = -5.00+float((((pressure)*(10.00))/2000.00));
+  }
   tStr = floatToString(temperature);
   
   //calculate a float salinty value based on the pressure, assume linearity with the maximum
@@ -819,7 +842,12 @@ String binaverage(){
   pressure -= float(float((random(200,600))/float(1600)));
   
   //calculate temperature and salinty values the same way as usual
-  temperature = 20-(((pressure)*(15.00))/2000.00);
+  if(iceAvoidance == -1){ 
+    temperature = 20.00-float((((pressure)*(15.00))/2000.00));
+  }
+  else if(iceAvoidance == 1){
+    temperature = -5.00+float((((pressure)*(10.00))/2000.00));
+  }
   salinity = (((pressure)*(4.00))/2000) + 33.5;
   
   //if the loop is in its first iteration, the total number of samples
