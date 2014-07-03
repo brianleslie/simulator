@@ -512,7 +512,6 @@ void loop(){
           inc = 0;
           count = 0;
         }
-          
         
         //if the input is qsr, send back that the seabird is powering down as a series of bytes 
         //(the simulator will just stay on and wait for the next interaction with the APFx)
@@ -526,22 +525,73 @@ void loop(){
           delay(100);
           attachInterrupt(0, checkLine, RISING);
         }
-        else if(input.equals("ia\r")){
+        
+        //if the input is id, send back that the seabird is in ice detect mode as a series of bytes 
+        //change the global variable ice avoidance to 1, which is detect mode
+        else if(input.equals("id\r")){
           iceAvoidance = 1;
-          String iceMode = " ice avoidance on\n\rS>";
-          int iceModeLen = iceMode.length()+1;
-          byte iceModeBuffer[100];
-          iceMode.getBytes(iceModeBuffer, iceModeLen);
-          Serial1.write(iceModeBuffer, iceModeLen);
+          String icedMode = " ice detect mode on\n\rS>";
+          int icedModeLen = icedMode.length()+1;
+          byte icedModeBuffer[100];
+          icedMode.getBytes(icedModeBuffer, icedModeLen);
+          Serial1.write(icedModeBuffer, icedModeLen);
         }
-        else if(input.equals("ia off\r")){
+        
+        //if the input is ic, send back that the seabird is in ice cap mode as a series of bytes 
+        //change the global variable ice avoidance to 2, which is cap mode
+        else if(input.equals("ic\r")){
+          iceAvoidance = 2;
+          String icecMode = " ice cap mode on\n\rS>";
+          int icecModeLen = icecMode.length()+1;
+          byte icecModeBuffer[100];
+          icecMode.getBytes(icecModeBuffer, icecModeLen);
+          Serial1.write(icecModeBuffer, icecModeLen);
+        }
+        
+        //if the input is ib, send back that the seabird is in ice breakup mode as a series of bytes 
+        //change the global variable ice avoidance to 3, which is breakup mode
+        else if(input.equals("ib\r")){
+          iceAvoidance = 1;
+          String icebMode = " ice breakup mode on\n\rS>";
+          int icebModeLen = icebMode.length()+1;
+          byte icebModeBuffer[100];
+          icebMode.getBytes(icebModeBuffer, icebModeLen);
+          Serial1.write(icebModeBuffer, icebModeLen);
+        }
+        
+        //if the input is id off, send back that ice detect mode is off as a series of bytes 
+        //change the global variable ice avoidance to -1, which is normal mode
+        else if(input.equals("id off\r")){
           iceAvoidance = -1;
-          String iceModeOff = " ice avoidance off\n\rS>";
+          String iceModeOff = " ice detect mode off\n\rS>";
           int iceModeOffLen = iceModeOff.length()+1;
           byte iceModeOffBuffer[100];
           iceModeOff.getBytes(iceModeOffBuffer, iceModeOffLen);
           Serial1.write(iceModeOffBuffer, iceModeOffLen);
         }
+        
+        //if the input is ic off, send back that ice cap mode is off as a series of bytes 
+        //change the global variable ice avoidance to -1, which is normal mode
+        else if(input.equals("ic off\r")){
+          iceAvoidance = -1;
+          String icecModeOff = " ice cap mode off\n\rS>";
+          int icecModeOffLen = icecModeOff.length()+1;
+          byte icecModeOffBuffer[100];
+          icecModeOff.getBytes(icecModeOffBuffer, icecModeOffLen);
+          Serial1.write(icecModeOffBuffer, icecModeOffLen);
+        }
+        
+        //if the input is ib off, send back that ice breakup mode is off as a series of bytes 
+        //change the global variable ice avoidance to -1, which is normal mode
+        else if(input.equals("ib off\r")){
+          iceAvoidance = -1;
+          String icebModeOff = " ice breakup mode off\n\rS>";
+          int icebModeOffLen = icebModeOff.length()+1;
+          byte icebModeOffBuffer[100];
+          icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
+          Serial1.write(icebModeOffBuffer, icebModeOffLen);
+        }
+        
       }
     }
   }
@@ -614,11 +664,11 @@ int debounce(int pin){
 /* the input value and fitting it to generic, general values tested by   */
 /* Hugh Fargher. In general, we used 3 linear models to represent 3      */
 /* ranges of depth (2000m-1000m, 1000m-500m, 500m-0m) with different     */
-/* slopes and offsets. From these pressure values, we assume another     */
-/* linear relationship to temperature (as pressure increases linerarly,  */
-/* temperature decreases linearly). Lastly, we can assume one last       */
-/* linear relationship between pressure and salinity (as pressure        */
-/* increases linearly, salinity increases linearly). The values of these */
+/* slopes and offsets. From these pressure values, we need to handle any */
+/* ice avoidance scenarios then we assume a polynomail relationship to   */
+/* temperature. Lastly, we can assume one last polynomail relationship   */
+/* between temperature and salinity (the same ratio as pressure to       */
+/* temperature, so use temperature to calculate). The values of these    */
 /* strings are appended to one another and formatted to match a regex    */
 /* pattern expected by the APF board on the float. Then use the select   */
 /* to choose which string (PTS, PT, or P to send to the APF board.       */
@@ -681,21 +731,35 @@ String getReadingFromPiston(int select){
   }
   pStr = floatToString(pressure);
   
-  //calculate a float temperature value based on the pressure, assume linearity with the maximum
-  //temperature of 20 deg C and minimum of 5 deg C. then convert the float 
-  //to a string using the floatToString function
-  if(iceAvoidance == -1){ 
-    temperature = 20.00-float((((pressure)*(15.00))/2000.00));
+  //determine if in ice detect, ice cap, ice breakup, or normal mode
+  //then calculate temperature based on criteria
+  
+  //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
+  if((iceAvoidance == 1)&&(pressure < 55)){
+    temperature = -1.78 - (random(0,100)/100);
   }
-  else if(iceAvoidance == 1){
-    temperature = -5.00+float((((pressure)*(10.00))/2000.00));
+  
+  //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
+  else if((iceAvoidance == 2)&&(pressure < 20)){
+    temperature = -1.78 - (random(0,100)/100);
   }
+  
+  //ice breakup mode, need a temp of > -1.78 C the whole way up
+  else if((iceAvoidance == 3)&&(pressure <55)){
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
+  //calculate temperature normally
+  else{ 
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
   tStr = floatToString(temperature);
   
-  //calculate a float salinty value based on the pressure, assume linearity with the maximum
-  //salinity of 37.5 and minimum of 33.5. then convert the float 
+  //calculate a float salinty value based on the pressure, assume linearity with the 
+  //minimum salinity of 33.5. then convert the float 
   //to a string using the floatToString function
-  salinity = (((pressure)*(4.00))/2000) + 33.5;
+  salinity = temperature*0.1+ 34.9;
   sStr = floatToString(salinity);
   
   //add all of the strings to create one string that represents a p,t,s reading
@@ -841,14 +905,31 @@ String binaverage(){
   pressure += float((float(random(100,500))/float(1500)));
   pressure -= float(float((random(200,600))/float(1600)));
   
-  //calculate temperature and salinty values the same way as usual
-  if(iceAvoidance == -1){ 
-    temperature = 20.00-float((((pressure)*(15.00))/2000.00));
+  //determine if in ice detect, ice cap, ice breakup, or normal mode
+  //then calculate temperature based on criteria
+  
+  //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
+  if((iceAvoidance == 1)&&(pressure < 55)){
+    temperature = -1.78 - (random(0,100)/100);
   }
-  else if(iceAvoidance == 1){
-    temperature = -5.00+float((((pressure)*(10.00))/2000.00));
+  
+  //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
+  else if((iceAvoidance == 2)&&(pressure < 20)){
+    temperature = -1.78 - (random(0,100)/100);
   }
-  salinity = (((pressure)*(4.00))/2000) + 33.5;
+  
+  //ice breakup mode, need a temp of > -1.78 C the whole way up
+  else if((iceAvoidance == 3)&&(pressure <55)){
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
+  //calculate temperature normally
+  else{ 
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
+  //calculate salinity normally
+  salinity = temperature*0.1 + 34.9;
   
   //if the loop is in its first iteration, the total number of samples
   //is the number of samples originally taken (count)
