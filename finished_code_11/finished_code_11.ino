@@ -1,10 +1,8 @@
 /*************************************************************************/
-/*                            finished_code_9.ino                        */
-/*                            *******************                        */
+/*                             finished_code.ino                         */
+/*                             *****************                         */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
-/*                                                                       */
-/* APF-9 differs from APF-11 in way it exits continuous profiling mode.  */
 /*                                                                       */
 /*************************************************************************/
 
@@ -73,11 +71,11 @@
 int interruptMessage = 0;
 int commandMode = -1;
 int cpMode = -1;
-int count = 0;
+int count;
 
 float maxPress = 0;
 float minPress = 10000;
-int nBins = 0;
+int nBins;
 int samplesLeft;
 int da = -1;
 int inc = 0;
@@ -366,11 +364,7 @@ void loop(){
         
         //leave continuous profiling mode if the pressure is less than 2 dbar
         if(minPress<=2){
-<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
           String exitcp = "\n\rS>stopprofile";
-=======
-          String exitcp = "profile stopped";
->>>>>>> a82d51c350ad01d1d0784b44cc40c421869442ce:finished_code_9/finished_code_9.ino
           int exitcpLen = exitcp.length()+1;
           byte exitcpBuffer[100];
           exitcp.getBytes(exitcpBuffer, exitcpLen);
@@ -382,7 +376,6 @@ void loop(){
         //leave continuous profiling mode if the stopprofile command is received
         if(Serial1.available()>0){
           String input = "";
-<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
           while(Serial1.available()>0){  
             char temp;
             temp = char(Serial1.read());
@@ -395,26 +388,7 @@ void loop(){
               Serial1.write(exitcpBuffer, exitcpLen);
               detachInterrupt(0);
               cpMode = -1;
-=======
-          while(1){
-            if(Serial1.available()>0){  
-              char temp;
-              temp = char(Serial1.read());
-              input+=temp;
-              if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
-                break;
-              }
->>>>>>> a82d51c350ad01d1d0784b44cc40c421869442ce:finished_code_9/finished_code_9.ino
             }
-          }
-          if(input.equals("stopprofile")){
-            String exitcp = "profile stopped";
-            int exitcpLen = exitcp.length()+1;
-            byte exitcpBuffer[100];
-            exitcp.getBytes(exitcpBuffer, exitcpLen);
-            Serial1.write(exitcpBuffer, exitcpLen);
-            detachInterrupt(0);
-            cpMode = -1;
           }
         }
       }
@@ -455,9 +429,8 @@ void loop(){
           String ds = "ds\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242"
           "\n\rfirmware compilation date: 18 December 2007 09:20"
           "\n\rstop profile when pressure is less than = 2.0 decibars"
-          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = "+String(count)+
-          "\n\rnumber of bins = "+String(nBins)+
-          "\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
+          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0"
+          "\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
           "\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20"
           "\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins"
           "\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
@@ -490,7 +463,7 @@ void loop(){
         //then send back that the profile has started, reattach interrupt to pin2, and 
         //turn on continuous profiling mode
         else if(input.equals("startprofile")){
-          String cp = "\n\rS>startprofile\n\rprofile started, pump delay = 0 seconds\n\rS>";
+          String cp = "\n\rstartprofile\n\rprofile started, pump delay = 0 seconds\n\rS>";
           int cpLen = cp.length()+1;
           byte cpBuffer[100];
           cp.getBytes(cpBuffer, cpLen);
@@ -503,7 +476,7 @@ void loop(){
         //then send back that the profile has stopped, ignore the external interrupt
         //on pin2, and turn off continuous profiling mode
         else if(input.equals("stopprofile")){
-          String exitcp = "profile stopped";
+          String exitcp = "\n\rS>stopprofile";
           int exitcpLen = exitcp.length()+1;
           byte exitcpBuffer[100];
           exitcp.getBytes(exitcpBuffer, exitcpLen);
@@ -785,20 +758,12 @@ String getReadingFromPiston(int select){
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
   if((iceAvoidance == 1)&&(pressure < 55)){
-<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
-=======
-    temperature = -2.00;
->>>>>>> a82d51c350ad01d1d0784b44cc40c421869442ce:finished_code_9/finished_code_9.ino
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
   else if((iceAvoidance == 2)&&(pressure < 20)){
-<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
-=======
-    temperature = -2.00;
->>>>>>> a82d51c350ad01d1d0784b44cc40c421869442ce:finished_code_9/finished_code_9.ino
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
@@ -968,20 +933,12 @@ String binaverage(){
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
   if((iceAvoidance == 1)&&(pressure < 55)){
-<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
-=======
-    temperature = -2.00;
->>>>>>> a82d51c350ad01d1d0784b44cc40c421869442ce:finished_code_9/finished_code_9.ino
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
   else if((iceAvoidance == 2)&&(pressure < 20)){
-<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
-=======
-    temperature = -2.00;
->>>>>>> a82d51c350ad01d1d0784b44cc40c421869442ce:finished_code_9/finished_code_9.ino
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
@@ -1036,8 +993,8 @@ String binaverage(){
 
   //create the string to be returned in the format:
   //"pppp.pppp, tt.tttt, ss.ssss, bb"
-  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(samplesUsed)+"\r\n";
+  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(samplesUsed)+"\n\r";
   
   //return the string
   return returnStr;
-}
+  }
