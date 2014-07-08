@@ -1,8 +1,10 @@
 /*************************************************************************/
-/*                             finished_code.ino                         */
-/*                             *****************                         */
+/*                            finished_code_9.ino                        */
+/*                            *******************                        */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
+/*                                                                       */
+/* APF-9 differs from APF-11 in way it exits continuous profiling mode.  */
 /*                                                                       */
 /*************************************************************************/
 
@@ -63,16 +65,19 @@
 /*                  created by converting their corresponding strings to */
 /*                  bytes using a built-in function                      */
 /*                                                                       */
+/* iceAvoidance: an int that represents which ice avoidance protocol is  */
+/*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
+/*                                                                       */
 /*************************************************************************/
 
 int interruptMessage = 0;
 int commandMode = -1;
 int cpMode = -1;
-int count;
+int count = 0;
 
 float maxPress = 0;
 float minPress = 10000;
-int nBins;
+int nBins = 0;
 int samplesLeft;
 int da = -1;
 int inc = 0;
@@ -105,12 +110,19 @@ int iceAvoidance = -1;
 /*************************************************************************/
 
 String getReadingFromPiston(int);
+
 String floatToString(float);
+
 String binaverage();
+
 int debounce(int);
+
 void checkLine();
+
 void runTimer(int);
+
 void setup();
+
 void loop();
 
 
@@ -354,19 +366,36 @@ void loop(){
         
         //leave continuous profiling mode if the pressure is less than 2 dbar
         if(minPress<=2){
+          String exitcp = "profile stopped";
+          int exitcpLen = exitcp.length()+1;
+          byte exitcpBuffer[100];
+          exitcp.getBytes(exitcpBuffer, exitcpLen);
+          Serial1.write(exitcpBuffer, exitcpLen);
+          detachInterrupt(0);
           cpMode = -1;
         }
         
         //leave continuous profiling mode if the stopprofile command is received
         if(Serial1.available()>0){
           String input = "";
-          while(Serial1.available()>0){  
-            char temp;
-            temp = char(Serial1.read());
-            input+=temp;
-            if(input.equals("stopprofile")){
-              cpMode = -1;
+          while(1){
+            if(Serial1.available()>0){  
+              char temp;
+              temp = char(Serial1.read());
+              input+=temp;
+              if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
+                break;
+              }
             }
+          }
+          if(input.equals("stopprofile")){
+            String exitcp = "profile stopped";
+            int exitcpLen = exitcp.length()+1;
+            byte exitcpBuffer[100];
+            exitcp.getBytes(exitcpBuffer, exitcpLen);
+            Serial1.write(exitcpBuffer, exitcpLen);
+            detachInterrupt(0);
+            cpMode = -1;
           }
         }
       }
@@ -407,8 +436,9 @@ void loop(){
           String ds = "ds\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242"
           "\n\rfirmware compilation date: 18 December 2007 09:20"
           "\n\rstop profile when pressure is less than = 2.0 decibars"
-          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0"
-          "\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
+          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = "+String(count)+
+          "\n\rnumber of bins = "+String(nBins)+
+          "\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
           "\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20"
           "\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins"
           "\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
@@ -441,7 +471,7 @@ void loop(){
         //then send back that the profile has started, reattach interrupt to pin2, and 
         //turn on continuous profiling mode
         else if(input.equals("startprofile")){
-          String cp = "\n\rstartprofile\n\rprofile started, pump delay = 0 seconds\n\rS>";
+          String cp = "\n\rS>startprofile\n\rprofile started, pump delay = 0 seconds\n\rS>";
           int cpLen = cp.length()+1;
           byte cpBuffer[100];
           cp.getBytes(cpBuffer, cpLen);
@@ -454,7 +484,7 @@ void loop(){
         //then send back that the profile has stopped, ignore the external interrupt
         //on pin2, and turn off continuous profiling mode
         else if(input.equals("stopprofile")){
-          String exitcp = "\n\rS>stopprofile";
+          String exitcp = "profile stopped";
           int exitcpLen = exitcp.length()+1;
           byte exitcpBuffer[100];
           exitcp.getBytes(exitcpBuffer, exitcpLen);
@@ -483,6 +513,8 @@ void loop(){
         else if((input.equals("da\r"))&&(da==1)){
           first = 1;
           int ii;
+          
+          //send all of the samples over serial
           for(ii=0; ii < nBins; ii++){
             if(ii == nBins - 1){
               last = 1;
@@ -493,11 +525,15 @@ void loop(){
             bin.getBytes(binBuffer, binLen);
             Serial1.write(binBuffer, binLen);
           }
+          
+          //send upload complete at end of all samples
           String complete = "\n\rupload complete\n\rS>";
           int completeLen = complete.length()+1;
           byte completeBuffer[100];
           complete.getBytes(completeBuffer, completeLen);
           Serial1.write(completeBuffer, completeLen);
+          
+          //reinitalize values
           maxPress = 0;
           minPress = 10000;
           nBins = 0;
@@ -505,7 +541,6 @@ void loop(){
           inc = 0;
           count = 0;
         }
-          
         
         //if the input is qsr, send back that the seabird is powering down as a series of bytes 
         //(the simulator will just stay on and wait for the next interaction with the APFx)
@@ -519,22 +554,73 @@ void loop(){
           delay(100);
           attachInterrupt(0, checkLine, RISING);
         }
-        else if(input.equals("ia\r")){
+        
+        //if the input is id, send back that the seabird is in ice detect mode as a series of bytes 
+        //change the global variable ice avoidance to 1, which is detect mode
+        else if(input.equals("id\r")){
           iceAvoidance = 1;
-          String iceMode = " ice avoidance on\n\rS>";
-          int iceModeLen = iceMode.length()+1;
-          byte iceModeBuffer[100];
-          iceMode.getBytes(iceModeBuffer, iceModeLen);
-          Serial1.write(iceModeBuffer, iceModeLen);
+          String icedMode = " ice detect mode on\n\rS>";
+          int icedModeLen = icedMode.length()+1;
+          byte icedModeBuffer[100];
+          icedMode.getBytes(icedModeBuffer, icedModeLen);
+          Serial1.write(icedModeBuffer, icedModeLen);
         }
-        else if(input.equals("ia off\r")){
+        
+        //if the input is ic, send back that the seabird is in ice cap mode as a series of bytes 
+        //change the global variable ice avoidance to 2, which is cap mode
+        else if(input.equals("ic\r")){
+          iceAvoidance = 2;
+          String icecMode = " ice cap mode on\n\rS>";
+          int icecModeLen = icecMode.length()+1;
+          byte icecModeBuffer[100];
+          icecMode.getBytes(icecModeBuffer, icecModeLen);
+          Serial1.write(icecModeBuffer, icecModeLen);
+        }
+        
+        //if the input is ib, send back that the seabird is in ice breakup mode as a series of bytes 
+        //change the global variable ice avoidance to 3, which is breakup mode
+        else if(input.equals("ib\r")){
+          iceAvoidance = 1;
+          String icebMode = " ice breakup mode on\n\rS>";
+          int icebModeLen = icebMode.length()+1;
+          byte icebModeBuffer[100];
+          icebMode.getBytes(icebModeBuffer, icebModeLen);
+          Serial1.write(icebModeBuffer, icebModeLen);
+        }
+        
+        //if the input is id off, send back that ice detect mode is off as a series of bytes 
+        //change the global variable ice avoidance to -1, which is normal mode
+        else if(input.equals("id off\r")){
           iceAvoidance = -1;
-          String iceModeOff = " ice avoidance off\n\rS>";
+          String iceModeOff = " ice detect mode off\n\rS>";
           int iceModeOffLen = iceModeOff.length()+1;
           byte iceModeOffBuffer[100];
           iceModeOff.getBytes(iceModeOffBuffer, iceModeOffLen);
           Serial1.write(iceModeOffBuffer, iceModeOffLen);
         }
+        
+        //if the input is ic off, send back that ice cap mode is off as a series of bytes 
+        //change the global variable ice avoidance to -1, which is normal mode
+        else if(input.equals("ic off\r")){
+          iceAvoidance = -1;
+          String icecModeOff = " ice cap mode off\n\rS>";
+          int icecModeOffLen = icecModeOff.length()+1;
+          byte icecModeOffBuffer[100];
+          icecModeOff.getBytes(icecModeOffBuffer, icecModeOffLen);
+          Serial1.write(icecModeOffBuffer, icecModeOffLen);
+        }
+        
+        //if the input is ib off, send back that ice breakup mode is off as a series of bytes 
+        //change the global variable ice avoidance to -1, which is normal mode
+        else if(input.equals("ib off\r")){
+          iceAvoidance = -1;
+          String icebModeOff = " ice breakup mode off\n\rS>";
+          int icebModeOffLen = icebModeOff.length()+1;
+          byte icebModeOffBuffer[100];
+          icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
+          Serial1.write(icebModeOffBuffer, icebModeOffLen);
+        }
+        
       }
     }
   }
@@ -607,11 +693,11 @@ int debounce(int pin){
 /* the input value and fitting it to generic, general values tested by   */
 /* Hugh Fargher. In general, we used 3 linear models to represent 3      */
 /* ranges of depth (2000m-1000m, 1000m-500m, 500m-0m) with different     */
-/* slopes and offsets. From these pressure values, we assume another     */
-/* linear relationship to temperature (as pressure increases linerarly,  */
-/* temperature decreases linearly). Lastly, we can assume one last       */
-/* linear relationship between pressure and salinity (as pressure        */
-/* increases linearly, salinity increases linearly). The values of these */
+/* slopes and offsets. From these pressure values, we need to handle any */
+/* ice avoidance scenarios then we assume a polynomail relationship to   */
+/* temperature. Lastly, we can assume one last polynomail relationship   */
+/* between temperature and salinity (the same ratio as pressure to       */
+/* temperature, so use temperature to calculate). The values of these    */
 /* strings are appended to one another and formatted to match a regex    */
 /* pattern expected by the APF board on the float. Then use the select   */
 /* to choose which string (PTS, PT, or P to send to the APF board.       */
@@ -672,23 +758,38 @@ String getReadingFromPiston(int select){
       minPress = pressure;
     }
   }
+  
   pStr = floatToString(pressure);
   
-  //calculate a float temperature value based on the pressure, assume linearity with the maximum
-  //temperature of 20 deg C and minimum of 5 deg C. then convert the float 
-  //to a string using the floatToString function
-  if(iceAvoidance == -1){ 
-    temperature = 20.00-float((((pressure)*(15.00))/2000.00));
+  //determine if in ice detect, ice cap, ice breakup, or normal mode
+  //then calculate temperature based on criteria
+  
+  //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
+  if((iceAvoidance == 1)&&(pressure < 55)){
+    temperature = -2.00;
   }
-  else if(iceAvoidance == 1){
-    temperature = -5.00+float((((pressure)*(10.00))/2000.00));
+  
+  //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
+  else if((iceAvoidance == 2)&&(pressure < 20)){
+    temperature = -2.00;
   }
+  
+  //ice breakup mode, need a temp of > -1.78 C the whole way up
+  else if((iceAvoidance == 3)&&(pressure <55)){
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
+  //calculate temperature normally
+  else{ 
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
   tStr = floatToString(temperature);
   
-  //calculate a float salinty value based on the pressure, assume linearity with the maximum
-  //salinity of 37.5 and minimum of 33.5. then convert the float 
+  //calculate a float salinty value based on the pressure, assume linearity with the 
+  //minimum salinity of 33.5. then convert the float 
   //to a string using the floatToString function
-  salinity = (((pressure)*(4.00))/2000) + 33.5;
+  salinity = temperature*0.1+ 34.9;
   sStr = floatToString(salinity);
   
   //add all of the strings to create one string that represents a p,t,s reading
@@ -716,6 +817,7 @@ String getReadingFromPiston(int select){
       sendMessage = (pStr+"\r\n");
       break;
   }
+  
   //return the given string
   return sendMessage;
 }
@@ -834,14 +936,31 @@ String binaverage(){
   pressure += float((float(random(100,500))/float(1500)));
   pressure -= float(float((random(200,600))/float(1600)));
   
-  //calculate temperature and salinty values the same way as usual
-  if(iceAvoidance == -1){ 
-    temperature = 20.00-float((((pressure)*(15.00))/2000.00));
+  //determine if in ice detect, ice cap, ice breakup, or normal mode
+  //then calculate temperature based on criteria
+  
+  //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
+  if((iceAvoidance == 1)&&(pressure < 55)){
+    temperature = -2.00;
   }
-  else if(iceAvoidance == 1){
-    temperature = -5.00+float((((pressure)*(10.00))/2000.00));
+  
+  //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
+  else if((iceAvoidance == 2)&&(pressure < 20)){
+    temperature = -2.00;
   }
-  salinity = (((pressure)*(4.00))/2000) + 33.5;
+  
+  //ice breakup mode, need a temp of > -1.78 C the whole way up
+  else if((iceAvoidance == 3)&&(pressure <55)){
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
+  //calculate temperature normally
+  else{ 
+    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+  }
+  
+  //calculate salinity normally
+  salinity = temperature*0.1 + 34.9;
   
   //if the loop is in its first iteration, the total number of samples
   //is the number of samples originally taken (count)
@@ -882,8 +1001,8 @@ String binaverage(){
 
   //create the string to be returned in the format:
   //"pppp.pppp, tt.tttt, ss.ssss, bb"
-  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(samplesUsed)+"\n\r";
+  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(samplesUsed)+"\r\n";
   
   //return the string
   return returnStr;
-  }
+}
