@@ -1,6 +1,6 @@
 /*************************************************************************/
-/*                             finished_code.ino                         */
-/*                             *****************                         */
+/*                           finished_code_11.ino                        */
+/*                           ********************                        */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
 /*                                                                       */
@@ -71,11 +71,11 @@
 int interruptMessage = 0;
 int commandMode = -1;
 int cpMode = -1;
-int count;
+int count = 0;
 
 float maxPress = 0;
 float minPress = 10000;
-int nBins;
+int nBins = 0;
 int samplesLeft;
 int da = -1;
 int inc = 0;
@@ -109,7 +109,9 @@ int iceAvoidance = -1;
 
 String getReadingFromPiston(int);
 
-String floatToString(float);
+String pressureToString(float);
+
+String tempOrSalinityToString(float);
 
 String binaverage();
 
@@ -429,8 +431,9 @@ void loop(){
           String ds = "ds\n\rSBE 41CP UW V 2.0  SERIAL NO. 4242"
           "\n\rfirmware compilation date: 18 December 2007 09:20"
           "\n\rstop profile when pressure is less than = 2.0 decibars"
-          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = 0"
-          "\n\rnumber of bins = 0\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
+          "\n\rautomatic bin averaging at end of profile disabled\n\rnumber of samples = "+String(count)+
+          "\n\rnumber of bins = "+String(nBins)+
+          "\n\rtop bin interval = 2\n\rtop bin size = 2\n\rtop bin max = 10"
           "\n\rmiddle bin interval = 2\n\rmiddle bin size = 2\n\rmiddle bin max = 20"
           "\n\rbottom bin interval = 2\n\rbottom bin size = 2\n\rdo not include two transition bins"
           "\n\rinclude samples per bin\n\rpumped take sample wait time = 20 sec\n\rreal-time output is PTS\n\rS>";
@@ -490,7 +493,7 @@ void loop(){
         //da command to be run (makes sure there is actual data to dump when requested)
         else if(input.equals("binaverage\r")){
           nBins = (int(maxPress)/2) + 1;
-          String binavg = "\n\rS>binaverage\n\rsamples = "+String(count)+", maxPress = "+floatToString(maxPress)+"\n\rrd: 0\n\ravg: 0\n\n\rdone, nbins = "+String(nBins)+"\n\rS>";
+          String binavg = "\n\rS>binaverage\n\rsamples = "+String(count)+", maxPress = "+pressureToString(maxPress)+"\n\rrd: 0\n\ravg: 0\n\n\rdone, nbins = "+String(nBins)+"\n\rS>";
           int binavgLen = binavg.length()+1;
           byte binavgBuffer[100];
           binavg.getBytes(binavgBuffer, binavgLen);
@@ -549,7 +552,7 @@ void loop(){
         
         //if the input is id, send back that the seabird is in ice detect mode as a series of bytes 
         //change the global variable ice avoidance to 1, which is detect mode
-        else if(input.equals("id\r")){
+        else if((input.equals("id\r"))||(input.equals("id on\r"))){
           iceAvoidance = 1;
           String icedMode = " ice detect mode on\n\n\rS>";
           int icedModeLen = icedMode.length()+1;
@@ -560,7 +563,7 @@ void loop(){
         
         //if the input is ic, send back that the seabird is in ice cap mode as a series of bytes 
         //change the global variable ice avoidance to 2, which is cap mode
-        else if(input.equals("ic\r")){
+        else if((input.equals("ic\r"))||(input.equals("ic on\r"))){
           iceAvoidance = 2;
           String icecMode = " ice cap mode on\n\n\rS>";
           int icecModeLen = icecMode.length()+1;
@@ -571,7 +574,7 @@ void loop(){
         
         //if the input is ib, send back that the seabird is in ice breakup mode as a series of bytes 
         //change the global variable ice avoidance to 3, which is breakup mode
-        else if(input.equals("ib\r")){
+        else if((input.equals("ib\r"))||(input.equals("ib on\r"))){
           iceAvoidance = 1;
           String icebMode = " ice breakup mode on\n\n\rS>";
           int icebModeLen = icebMode.length()+1;
@@ -612,7 +615,13 @@ void loop(){
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
         }
-        
+        else if(input.equals("build\r")){
+          String build = "\n\rS>APF-11\n\n\rS>";
+          int buildLen = build.length()+1;
+          byte buildBuffer[100];
+          build.getBytes(buildBuffer, buildLen);
+          Serial1.write(buildBuffer, buildLen);
+        }
       }
     }
   }
@@ -740,7 +749,7 @@ String getReadingFromPiston(int select){
   }
   
   //adjust for hardware that amplifies the signal by approximately 1.1, then convert the float 
-  //to a string using the floatToString function
+  //to a string using the pressureToString function
   pressure = pressure * 1.08;
   if(cpMode == 1){
     if(pressure >= maxPress){
@@ -751,7 +760,7 @@ String getReadingFromPiston(int select){
     }
   }
   
-  pStr = floatToString(pressure);
+  pStr = pressureToString(pressure);
   
   //determine if in ice detect, ice cap, ice breakup, or normal mode
   //then calculate temperature based on criteria
@@ -776,13 +785,13 @@ String getReadingFromPiston(int select){
     temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
   }
   
-  tStr = floatToString(temperature);
+  tStr = tempOrSalinityToString(temperature);
   
   //calculate a float salinty value based on the pressure, assume linearity with the 
   //minimum salinity of 33.5. then convert the float 
-  //to a string using the floatToString function
+  //to a string using the tempOrSalinityToString function
   salinity = temperature*0.1+ 34.9;
-  sStr = floatToString(salinity);
+  sStr = tempOrSalinityToString(salinity);
   
   //add all of the strings to create one string that represents a p,t,s reading
   ptsStr = pStr+", "+tStr+", "+sStr+"\r\n";
@@ -815,8 +824,8 @@ String getReadingFromPiston(int select){
 }
 
 /*************************************************************************/
-/*                             floatToString                             */
-/*                             *************                             */
+/*                           pressureToString                            */
+/*                           ****************                            */
 /*                                                                       */
 /* parameters: aFloat, a float value representing the float that is      */
 /*                 going to be converted to a string                     */
@@ -824,11 +833,11 @@ String getReadingFromPiston(int select){
 /*                                                                       */
 /* This function creates a string that will look like a float by         */
 /* splitting it into its whole and decimal parts, then adding them as    */
-/* two strings with the appropriate formatting for a p, t ,or s value    */
+/* two strings with the appropriate formatting for a pressure value      */
 /*                                                                       */
 /*************************************************************************/
 
-String floatToString(float aFloat){
+String pressureToString(float aFloat){
   
   //long int values
   long floatLong;
@@ -839,20 +848,66 @@ String floatToString(float aFloat){
   String floatStr;
   
   //calculate the whole number and decimal number
-  floatLong = 1000*aFloat;
-  floatInt = floatLong/1000;
-  floatDec = floatLong - (floatInt*1000);
+  floatLong = 100*aFloat;
+  floatInt = floatLong/100;
+  floatDec = floatLong - (floatInt*100);
  
   //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
-  // or losing two 0's in a number less than 100 (i.e. get 009 instead of 9)
   if(floatDec<10){
-    floatStr = String(floatInt)+".00"+String(floatDec);
-  }
-  else if((floatDec < 100)&&(floatDec >= 10)){
-    floatStr = String(floatInt)+".0"+String(floatDec);
+    floatStr = " "+String(floatInt)+".0"+String(floatDec);
   }
   else{
-    floatStr = String(floatInt)+'.'+String(floatDec);
+    floatStr = " "+String(floatInt)+"."+String(floatDec);
+  }
+  
+  //return the formatted string
+  return floatStr;
+}
+
+/*************************************************************************/
+/*                        tempOrSalinityToString                         */
+/*                        **********************                         */
+/*                                                                       */
+/* parameters: aFloat, a float value representing the float that is      */
+/*                 going to be converted to a string                     */
+/* returns: an string value that will represent the float as a string    */
+/*                                                                       */
+/* This function creates a string that will look like a float by         */
+/* splitting it into its whole and decimal parts, then adding them as    */
+/* two strings with the appropriate formatting for a temperature or      */
+/* salinity value.
+/*                                                                       */
+/*************************************************************************/
+
+String tempOrSalinityToString(float aFloat){
+  
+  //long int values
+  long floatLong;
+  int floatInt;
+  int floatDec;
+  
+  //string to be returned
+  String floatStr;
+  
+  //calculate the whole number and decimal number
+  floatLong = 10000*aFloat;
+  floatInt = floatLong/10000;
+  floatDec = floatLong - (floatInt*10000);
+ 
+  //handle case for losing three 0's in a number less than 10 (i.e. get .0009 instead of .9000)
+  //or losing two 0's in a number less than 100 but greater than 10 (i.e. .0091 rather than .9100)
+  // or losing a 0 in a number less than 1000 but greater than 100 (i.e. .0991 rather than .9110
+  if(floatDec<10){
+    floatStr = " "+String(floatInt)+".000"+String(floatDec);
+  }
+  else if((floatDec<100)&&(floatDec>=10)){
+    floatStr = " "+String(floatInt)+".00"+String(floatDec);
+  }
+  else if((floatDec<1000)&&(floatDec>=100)){
+    floatStr = " "+String(floatInt)+".0"+String(floatDec);
+  }
+  else{
+    floatStr = " "+String(floatInt)+'.'+String(floatDec);
   }
   
   //return the formatted string
@@ -993,7 +1048,7 @@ String binaverage(){
 
   //create the string to be returned in the format:
   //"pppp.pppp, tt.tttt, ss.ssss, bb"
-  returnStr = floatToString(pressure)+", "+floatToString(temperature)+", "+floatToString(salinity)+", "+String(samplesUsed)+"\n\r";
+  returnStr = pressureToString(pressure)+", "+tempOrSalinityToString(temperature)+", "+tempOrSalinityToString(salinity)+", "+String(samplesUsed)+"\n\r";
   
   //return the string
   return returnStr;
