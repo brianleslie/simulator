@@ -4,8 +4,6 @@
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
 /*                                                                       */
-/* APF-9 differs from APF-11 in the way it exits continuous profiling    */
-/* mode.                                                                 */
 /*                                                                       */
 /*************************************************************************/
 
@@ -85,9 +83,9 @@ int inc = 0;
 int last = -1;
 int first = -1;
 
-String msg = "SBE 41CP UW. V 2.0";
+String msg = "SBE 41CP UW. V 2.0\r\nS>";
 int msgLen = msg.length()+1;
-byte cmdMode[100];
+byte msgBuffer[100];
 
 String msg2;
 int msg2Len;
@@ -100,10 +98,6 @@ byte pt[100];
 String msg4;
 int msg4Len;
 byte p[100];
-
-String cMode = "\r\nS>";
-int cModeLen;
-byte cModeBuffer[100];
 
 String pOrPTS[2] = {"P only", "PTS"};
 
@@ -292,12 +286,10 @@ void loop(){
     //if it is 1, convert the global string msg to the global byte array cmdMode
     //then send the array over Serial1, reset interruptMessage to 0, then leave the loop
     case 1:
-      msg.getBytes(cmdMode, msgLen);
-      Serial1.write(cmdMode, msgLen);
       delay(1300);
-      cModeLen = cMode.length()+1;
-      cMode.getBytes(cModeBuffer, cModeLen);
-      Serial1.write(cModeBuffer, cModeLen);
+      msgLen = msg.length()+1;
+      msg.getBytes(msgBuffer, msgLen);
+      Serial1.write(msgBuffer, msgLen);
       interruptMessage = 0;
       break;
       
@@ -309,8 +301,6 @@ void loop(){
       msg2 = getReadingFromPiston(2);
       msg2Len = msg2.length()+1;
       msg2.getBytes(pts, msg2Len);
-      Serial.println(msg2);
-      delay(500);
       Serial1.write(pts, msg2Len);
       interruptMessage = 0;
       break;
@@ -349,6 +339,7 @@ void loop(){
   //over the serial ports. To be in continuous profiling mode, the simulator needs to be
   //in command mode, so the loop for continuous profiling is also handled here
   if(commandMode == 1){
+    
     //ignore the interrupts on pin 2 once at the beginning
     detachInterrupt(0);
     
@@ -362,9 +353,11 @@ void loop(){
       //contiuous profiling mode is turned on by the startprofile command over serial
       while(cpMode == 1){
         
+        digitalWrite(8, LOW);
         //only take sample once every 1 sec (delay .95 sec)
         delay(950);
         
+        digitalWrite(8, HIGH);
         //clear out any junk value on pin A0
         analogRead(A0);
         
@@ -379,38 +372,22 @@ void loop(){
         //record that you have taken 1 sample
         count+=1;
         
-        //leave continuous profiling mode if the pressure is less than 2 dbar
-        if(minPress<=2){
-          String exitcp = "profile stopped";
-          int exitcpLen = exitcp.length()+1;
-          byte exitcpBuffer[100];
-          exitcp.getBytes(exitcpBuffer, exitcpLen);
-          Serial1.write(exitcpBuffer, exitcpLen);
-          detachInterrupt(0);
-          cpMode = -1;
-        }
-        
         //leave continuous profiling mode if the stopprofile command is received
         if(Serial1.available()>0){
           String input = "";
-          while(1){
-            if(Serial1.available()>0){  
-              char temp;
-              temp = char(Serial1.read());
-              input+=temp;
-              if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
-                break;
-              }
+          while(Serial1.available()>0){  
+            char temp;
+            temp = char(Serial1.read());
+            input+=temp;
+            if(input.equals("stopprofile")){
+              String exitcp = "profile stopped";
+              int exitcpLen = exitcp.length()+1;
+              byte exitcpBuffer[100];
+              exitcp.getBytes(exitcpBuffer, exitcpLen);
+              Serial1.write(exitcpBuffer, exitcpLen);
+              detachInterrupt(0);
+              cpMode = -1;
             }
-          }
-          if(input.equals("stopprofile")){
-            String exitcp = "profile stopped";
-            int exitcpLen = exitcp.length()+1;
-            byte exitcpBuffer[100];
-            exitcp.getBytes(exitcpBuffer, exitcpLen);
-            Serial1.write(exitcpBuffer, exitcpLen);
-            detachInterrupt(0);
-            cpMode = -1;
           }
         }
       }
@@ -437,9 +414,6 @@ void loop(){
         }
         
         //if the input is a carriage return, send back the sbe command prompt (S>) as a series of byes
-        //the command prompt should also be returned during the config command as a response to each
-        //one of the parameters being set, also need to handle the configuring of pts output during
-        //cp mode (the very last "outputpts=y" control statement), this will also return the command prompt 
         if(input.equals("\r")){
           String cmdMode = "\r\nS>";
           int cmdModeLen = cmdMode.length()+1;
@@ -447,7 +421,9 @@ void loop(){
           cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
           Serial1.write(cmdModeBuffer, cmdModeLen);
         }
-        if(input.equals("pcutoff=2.0\r")){
+        
+        //if the input is pcutoff=2.0, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pcutoff=2.0\r")){
           delay(10);
           String pcutoff = "\r\nS>pcutoff=2.0";
           int pcutoffLen = pcutoff.length()+1;
@@ -455,104 +431,10 @@ void loop(){
           pcutoff.getBytes(pcutoffBuffer, pcutoffLen);
           Serial1.write(pcutoffBuffer, pcutoffLen);
         }
-        if(input.equals("autobinavg=n\r")){
-          delay(10);
-          String aba = "\r\nS>autobinavg=n";
-          int abaLen = aba.length()+1;
-          byte abaBuffer[100];
-          aba.getBytes(abaBuffer, abaLen);
-          Serial1.write(abaBuffer, abaLen);
-        }
-        if(input.equals("top_bin_interval=2\r")){
-          delay(10);
-          String tbi = "\r\nS>top_bin_interval=2";
-          int tbiLen = tbi.length()+1;
-          byte tbiBuffer[100];
-          tbi.getBytes(tbiBuffer, tbiLen);
-          Serial1.write(tbiBuffer, tbiLen);
-        }
-        if(input.equals("top_bin_size=2\r")){
-          delay(10);
-          String tbs = "\r\nS>top_bin_size=2";
-          int tbsLen = tbs.length()+1;
-          byte tbsBuffer[100];
-          tbs.getBytes(tbsBuffer, tbsLen);
-          Serial1.write(tbsBuffer, tbsLen);
-        }
-        if(input.equals("top_bin_max=10\r")){
-          delay(10);
-          String tbm = "\r\nS>top_bin_max=10";
-          int tbmLen = tbm.length()+1;
-          byte tbmBuffer[100];
-          tbm.getBytes(tbmBuffer, tbmLen);
-          Serial1.write(tbmBuffer, tbmLen);
-        }
-        if(input.equals("middle_bin_interval=2\r")){
-          delay(10);
-          String mbi = "\r\nS>middle_bin_interval=2";
-          int mbiLen = mbi.length()+1;
-          byte mbiBuffer[100];
-          mbi.getBytes(mbiBuffer, mbiLen);
-          Serial1.write(mbiBuffer, mbiLen);
-        }
-        if(input.equals("middle_bin_size=2\r")){
-          delay(10);
-          String mbs = "\r\nS>middle_bin_size=2";
-          int mbsLen = mbs.length()+1;
-          byte mbsBuffer[100];
-          mbs.getBytes(mbsBuffer, mbsLen);
-          Serial1.write(mbsBuffer, mbsLen);
-        }
-        if(input.equals("middle_bin_max=20\r")){
-          delay(10);
-          String mbm = "\r\nS>middle_bin_max=20";
-          int mbmLen = mbm.length()+1;
-          byte mbmBuffer[100];
-          mbm.getBytes(mbmBuffer, mbmLen);
-          Serial1.write(mbmBuffer, mbmLen);
-        }
-        if(input.equals("bottom_bin_interval=2\r")){
-          delay(10);
-          String bbi = "\r\nS>bottom_bin_interval=2";
-          int bbiLen = bbi.length()+1;
-          byte bbiBuffer[100];
-          bbi.getBytes(bbiBuffer, bbiLen);
-          Serial1.write(bbiBuffer, bbiLen);
-        }
-        if(input.equals("bottom_bin_size=2\r")){
-          delay(10);
-          String bbs = "\r\nS>bottom_bin_size=2";
-          int bbsLen = bbs.length()+1;
-          byte bbsBuffer[100];
-          bbs.getBytes(bbsBuffer, bbsLen);
-          Serial1.write(bbsBuffer, bbsLen);
-        }
-        if(input.equals("includetransitionbin=n\r")){
-          delay(10);
-          String itb = "\r\nS>includetransitionbin=n";
-          int itbLen = itb.length()+1;
-          byte itbBuffer[100];
-          itb.getBytes(itbBuffer, itbLen);
-          Serial1.write(itbBuffer, itbLen);
-        }
-        if(input.equals("includenbin=y\r")){
-          delay(10);
-          String ib = "\r\nS>includenbin=y";
-          int ibLen = ib.length()+1;
-          byte ibBuffer[100];
-          ib.getBytes(ibBuffer, ibLen);
-          Serial1.write(ibBuffer, ibLen);
-        }
-        if(input.equals("outputpts=n\r")){
-          delay(10);
-          String optsn = "\r\nS>outputpts=n";
-          int optsnLen = optsn.length()+1;
-          byte optsnBuffer[100];
-          optsn.getBytes(optsnBuffer, optsnLen);
-          Serial1.write(optsnBuffer, optsnLen);
-          pOrPTSsel = 0;
-        }
-        if(input.equals("outputpts=y\r")){
+        
+        //if the input is outputpts=y, send back the command prompt and echo the input as a series of bytes
+        //and change pOrPTSsel to 1 so that the ds command will display pts
+        else if(input.equals("outputpts=y\r")){
           delay(10);
           String optsy = "\r\nS>outputpts=y";
           int optsyLen = optsy.length()+1;
@@ -561,7 +443,9 @@ void loop(){
           Serial1.write(optsyBuffer, optsyLen);
           pOrPTSsel = 1;
         }
-        if(input.equals("tswait=20\r")){
+        
+        //if the input is tswait=20, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("tswait=20\r")){
           delay(10);
           String tsw = "\r\nS>tswait=20";
           int tswLen = tsw.length()+1;
@@ -724,6 +608,128 @@ void loop(){
           attachInterrupt(0, checkLine, RISING);
         }
         
+        //if the input is autobinavg=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("autobinavg=n\r")){
+          delay(10);
+          String aba = "\r\nS>autobinavg=n";
+          int abaLen = aba.length()+1;
+          byte abaBuffer[100];
+          aba.getBytes(abaBuffer, abaLen);
+          Serial1.write(abaBuffer, abaLen);
+        }
+        
+        //if the input is top_bin_interval=2, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("top_bin_interval=2\r")){
+          delay(10);
+          String tbi = "\r\nS>top_bin_interval=2";
+          int tbiLen = tbi.length()+1;
+          byte tbiBuffer[100];
+          tbi.getBytes(tbiBuffer, tbiLen);
+          Serial1.write(tbiBuffer, tbiLen);
+        }
+        
+        //if the input is top_bin_size=2, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("top_bin_size=2\r")){
+          delay(10);
+          String tbs = "\r\nS>top_bin_size=2";
+          int tbsLen = tbs.length()+1;
+          byte tbsBuffer[100];
+          tbs.getBytes(tbsBuffer, tbsLen);
+          Serial1.write(tbsBuffer, tbsLen);
+        }
+        
+        //if the input is top_bin_max=10, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("top_bin_max=10\r")){
+          delay(10);
+          String tbm = "\r\nS>top_bin_max=10";
+          int tbmLen = tbm.length()+1;
+          byte tbmBuffer[100];
+          tbm.getBytes(tbmBuffer, tbmLen);
+          Serial1.write(tbmBuffer, tbmLen);
+        }
+        
+        //if the input is middle_bin_interval=2, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("middle_bin_interval=2\r")){
+          delay(10);
+          String mbi = "\r\nS>middle_bin_interval=2";
+          int mbiLen = mbi.length()+1;
+          byte mbiBuffer[100];
+          mbi.getBytes(mbiBuffer, mbiLen);
+          Serial1.write(mbiBuffer, mbiLen);
+        }
+        
+        //if the input is middle_bin_size=2, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("middle_bin_size=2\r")){
+          delay(10);
+          String mbs = "\r\nS>middle_bin_size=2";
+          int mbsLen = mbs.length()+1;
+          byte mbsBuffer[100];
+          mbs.getBytes(mbsBuffer, mbsLen);
+          Serial1.write(mbsBuffer, mbsLen);
+        }
+        
+        //if the input is middle_bin_max=20, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("middle_bin_max=20\r")){
+          delay(10);
+          String mbm = "\r\nS>middle_bin_max=20";
+          int mbmLen = mbm.length()+1;
+          byte mbmBuffer[100];
+          mbm.getBytes(mbmBuffer, mbmLen);
+          Serial1.write(mbmBuffer, mbmLen);
+        }
+        
+        //if the input is bottom_bin_interval=2, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("bottom_bin_interval=2\r")){
+          delay(10);
+          String bbi = "\r\nS>bottom_bin_interval=2";
+          int bbiLen = bbi.length()+1;
+          byte bbiBuffer[100];
+          bbi.getBytes(bbiBuffer, bbiLen);
+          Serial1.write(bbiBuffer, bbiLen);
+        }
+        
+        //if the input is bottom_bin_size=2, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("bottom_bin_size=2\r")){
+          delay(10);
+          String bbs = "\r\nS>bottom_bin_size=2";
+          int bbsLen = bbs.length()+1;
+          byte bbsBuffer[100];
+          bbs.getBytes(bbsBuffer, bbsLen);
+          Serial1.write(bbsBuffer, bbsLen);
+        }
+        
+        //if the input is includetransitionbin=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("includetransitionbin=n\r")){
+          delay(10);
+          String itb = "\r\nS>includetransitionbin=n";
+          int itbLen = itb.length()+1;
+          byte itbBuffer[100];
+          itb.getBytes(itbBuffer, itbLen);
+          Serial1.write(itbBuffer, itbLen);
+        }
+        
+        //if the input is includenbin=y, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("includenbin=y\r")){
+          delay(10);
+          String ib = "\r\nS>includenbin=y";
+          int ibLen = ib.length()+1;
+          byte ibBuffer[100];
+          ib.getBytes(ibBuffer, ibLen);
+          Serial1.write(ibBuffer, ibLen);
+        }
+        
+        //if the input is outputpts=n, send back the command prompt and echo the input as a series of bytes
+        //and set pOrPTSsel to 0 so that the ds command will display p only
+        else if(input.equals("outputpts=n\r")){
+          delay(10);
+          String optsn = "\r\nS>outputpts=n";
+          int optsnLen = optsn.length()+1;
+          byte optsnBuffer[100];
+          optsn.getBytes(optsnBuffer, optsnLen);
+          Serial1.write(optsnBuffer, optsnLen);
+          pOrPTSsel = 0;
+        }
+        
         //if the input is id, send back that the seabird is in ice detect mode as a series of bytes 
         //change the global variable ice avoidance to 1, which is detect mode
         else if((input.equals("id\r"))||(input.equals("id on\r"))){
@@ -799,8 +805,10 @@ void loop(){
           build.getBytes(buildBuffer, buildLen);
           Serial1.write(buildBuffer, buildLen);
         }
+        
         else{
         }
+        
       }
     }
   }
@@ -956,12 +964,12 @@ String getReadingFromPiston(int select){
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
   else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   //calculate temperature normally
   else{ 
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   tStr = tempOrSalinityToString(temperature);
@@ -1029,7 +1037,7 @@ String pressureToString(float aFloat){
   //calculate the whole number and decimal number
   floatLong = 100*aFloat;
   floatInt = floatLong/100;
-  floatDec = floatLong - (floatInt*100);
+  floatDec = abs(floatLong - (floatInt*100));
  
   //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
   if(floatDec<10){
@@ -1071,7 +1079,7 @@ String tempOrSalinityToString(float aFloat){
   //calculate the whole number and decimal number
   floatLong = 10000*aFloat;
   floatInt = floatLong/10000;
-  floatDec = floatLong - (floatInt*10000);
+  floatDec = abs(floatLong - (floatInt*10000));
  
   //handle case for losing three 0's in a number less than 10 (i.e. get .0009 instead of .9000)
   //or losing two 0's in a number less than 100 but greater than 10 (i.e. .0091 rather than .9100)
@@ -1177,12 +1185,12 @@ String binaverage(){
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
   else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   //calculate temperature normally
   else{ 
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   //calculate salinity normally
