@@ -1,6 +1,6 @@
 /*************************************************************************/
-/*                            finished_code_9.ino                        */
-/*                            *******************                        */
+/*                            finished_code_9_ice.ino                    */
+/*                            ***********************                    */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
 /*                                                                       */
@@ -885,30 +885,23 @@ String getReadingFromPiston(int select){
   
   //read an analog value on pin 1, use it for the calculations 1023=2.56V
   int voltage = analogRead(A0);
+  Serial.println(String(voltage));
+  Serial.println(tempOrSalinityToString(voltage*2.56/1023));
   
-  //technically out of range, but use it to go to a pressure greater than 2000dbar, min change = 5dbar
-  if(voltage<72){
-    pressure = 2000+1*(voltage-72);
+  //technically out of range, but will go to 250
+  if(voltage<600){
+    pressure = 250.0;
   }
-  
-  //for pressures between 2000-1000dbar, 72 = 2000dbar, 293 = 1000dbar, min change = 4.5045dbar
-  else if((voltage>=72)&&(voltage<294)){
-    pressure = ((4.5045)*(222-(voltage-72)))+1000.00;
+  else if(voltage>950){
+    pressure = 0.0;
   }
-  
-  //for pressures between 1000-500dbar, 294 = 1000dbar, 453 = 500dbar, min change = 3.125dbar
-  else if((voltage>=294)&&(voltage<454)){
-    pressure = ((3.125)*(160-(voltage-294)))+500.00;
-  }
-  
   //for pressures between 500-0dbar, 454 = 500dbar, 1023 = 0dbar, min change = 0.878dbar
-  else if((voltage>=454)&&(voltage<1024)){
-    pressure = ((0.878)*(569-(voltage-454)));
+  else if((voltage>=600)&&(voltage<=950)){
+    pressure = (250.0*(950-voltage)/350.0);
   }
   
   //adjust for hardware that amplifies the signal by approximately 1.1, then convert the float 
   //to a string using the pressureToString function
-  pressure = pressure * 1.08;
   if(cpMode == 1){
     if(pressure >= maxPress){
       maxPress = pressure;

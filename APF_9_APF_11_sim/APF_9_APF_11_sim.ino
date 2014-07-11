@@ -1,9 +1,13 @@
 /*************************************************************************/
-/*                            finished_code_9.ino                        */
-/*                            *******************                        */
+/*                            APF-9_APF-11_sim.ino                       */
+/*                            ********************                       */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
 /*                                                                       */
+/* Version [1.0] supports simulation of APF-9 and APF-11. Currently      */
+/* will support getting P, T (11 only), PT, or PTS readings; querrying   */
+/* firmware / serial number (9 only); configuration; continuous profile, */
+/* binaverage; ice avoidance; displaying calibration coefficients.       */
 /*                                                                       */
 /*************************************************************************/
 
@@ -818,16 +822,6 @@ void loop(){
           byte icebModeOffBuffer[100];
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
-        }
-        
-        //if the input is build send back that the simulator is setup for APF-9 simulation
-        //by returning APF-9 as a series of bytes of serial
-        else if(input.equals("build\r")){
-          String build = "\r\nAPF-9\r\nS>";
-          int buildLen = build.length()+1;
-          byte buildBuffer[100];
-          build.getBytes(buildBuffer, buildLen);
-          Serial1.write(buildBuffer, buildLen);
         }
         
         else{
