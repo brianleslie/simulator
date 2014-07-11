@@ -64,6 +64,15 @@
 /*                  created by converting their corresponding strings to */
 /*                  bytes using a built-in function                      */
 /*                                                                       */
+/* pOrPTS: an array of strings that determine whether the output is just */
+/*                  a p reading or a pts reading, necessary to pass test */
+/*                  during configuration, irrelevent to actual operation */
+/*                                                                       */
+/* pOrPTSsel: an int that represents the array index for the pOrPTS      */
+/*                  array, 1 (default) means PTS, 0 means P. this will   */
+/*                  be changed based on serial messages received from    */
+/*                  APF board                                            */
+/*                                                                       */
 /* iceAvoidance: an int that represents which ice avoidance protocol is  */
 /*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
 /*                                                                       */
@@ -104,6 +113,8 @@ String pOrPTS[2] = {"P only", "PTS"};
 int pOrPTSsel = 1;
 
 int iceAvoidance = -1;
+
+String stopprofile = "stop";
 
 /*************************************************************************/
 /*                            function prototypes                        */
@@ -208,6 +219,7 @@ void checkLine(){
     //else don't do anything
     else{
     }
+    
   }
 }
 
@@ -353,11 +365,9 @@ void loop(){
       //contiuous profiling mode is turned on by the startprofile command over serial
       while(cpMode == 1){
         
-        digitalWrite(8, LOW);
         //only take sample once every 1 sec (delay .95 sec)
         delay(950);
         
-        digitalWrite(8, HIGH);
         //clear out any junk value on pin A0
         analogRead(A0);
         
@@ -368,7 +378,7 @@ void loop(){
         int cpStrLen = cpStr.length()+1;
         cpStr.getBytes(cpStrBuffer, cpStrLen);
         Serial1.write(cpStrBuffer, cpStrLen);
-        
+
         //record that you have taken 1 sample
         count+=1;
         
@@ -378,8 +388,19 @@ void loop(){
           while(Serial1.available()>0){  
             char temp;
             temp = char(Serial1.read());
-            input+=temp;
-            if(input.equals("stopprofile")){
+            if(temp=='s'){
+              input+=temp;
+            }
+            if(temp=='t'){
+              input+=temp;
+            }
+            if(temp=='o'){
+              input+=temp;
+            }
+            if(temp=='p'){
+              input+=temp;
+            }
+            if(input.equals(stopprofile)){
               String exitcp = "profile stopped";
               int exitcpLen = exitcp.length()+1;
               byte exitcpBuffer[100];
@@ -397,9 +418,10 @@ void loop(){
       /*************************************************************************/
         
       
-      //check for a message in Serial1, it there is, create a blank string, then add each character in the 
+      //check for a message in Serial1, if there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
-      //is actually sent, if it is not the carriage return, wait fƒor the next character
+      //is actually sent, if it is not the carriage return, wait for the next character, two exceptions 
+      //are the input strings startprofile and stopprofile (used for continuous profiling mode)
       if(Serial1.available()>0){
         String input = "";
         while(1){
@@ -456,7 +478,9 @@ void loop(){
         }
         
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
-        //info based on an actual seabird, can edit field in this string if necessary)
+        //info based on an actual seabird, can edit field in this string if necessary), there should be 3 
+        //fields that will vary: the number of bins, number of samples, and whether it is expecting only P
+        //or pts for real time output
         else if(input.equals("ds\r")){
           String ds = "\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
           "\r\nfirmware compilation date: 18 December 2007 09:20"
@@ -816,59 +840,6 @@ void loop(){
 
 
 /*************************************************************************/
-/*                                debounce                               */
-/*                                ********                               */
-/*                                                                       */
-/* parameters: pin, an integer value representing the pin that is        */
-/*                 connected to the input being toggled                  */
-/* returns: an integer value that will be positive (1) if the pin is     */
-/*                 high and negative (-1) if the pin is low              */
-/*                                                                       */
-/* This function checks the logic level of a pin 6 times (once / ~50ms)  */
-/* and determines if it is high or low                                   */
-/*                                                                       */
-/*************************************************************************/
-
-int debounce(int pin){
-  int highOrLow = 0;
-  int highOrLowTotal = 0;
-  int i = 0;
-  
-  //check the given pin, if it is high, add 1 to the total, if it is low add 0 to the total.
-  //repeat this 6 times for accuracy, waiting ~50ms between each read of the pin.
-  for(i = 0; i < 6; i++){
-    if(digitalRead(pin)==HIGH){
-      highOrLow = 1;
-    }
-    else{
-      highOrLow = 0;
-    }
-    long time;
-    Timer1.start();
-    long timeLast = Timer1.read();
-    int i = 0;
-    for(i = 0; i < 100000; i++){
-      time = Timer1.read();
-      if (time > (timeLast + 49900)){
-        Timer1.stop();
-        break;
-      }
-    }
-    highOrLowTotal+=highOrLow;
-  }
-  
-  //if it is considered high (based on value of total after loop), return 1
-  if(highOrLowTotal >=2){
-    return 1;
-  }
-  
-  //if it is considered low (based on value of total after loop), return -1
-  else{
-    return -1;
-  }
-}
-
-/*************************************************************************/
 /*                             getReadingFromPiston                      */
 /*                             ********************                      */
 /*                                                                       */
@@ -1010,121 +981,6 @@ String getReadingFromPiston(int select){
   return sendMessage;
 }
 
-/*************************************************************************/
-/*                           pressureToString                            */
-/*                           ****************                            */
-/*                                                                       */
-/* parameters: aFloat, a float value representing the float that is      */
-/*                 going to be converted to a string                     */
-/* returns: an string value that will represent the float as a string    */
-/*                                                                       */
-/* This function creates a string that will look like a float by         */
-/* splitting it into its whole and decimal parts, then adding them as    */
-/* two strings with the appropriate formatting for a pressure value      */
-/*                                                                       */
-/*************************************************************************/
-
-String pressureToString(float aFloat){
-  
-  //long int values
-  long floatLong;
-  int floatInt;
-  int floatDec;
-  
-  //string to be returned
-  String floatStr;
-  
-  //calculate the whole number and decimal number
-  floatLong = 100*aFloat;
-  floatInt = floatLong/100;
-  floatDec = abs(floatLong - (floatInt*100));
- 
-  //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
-  if(floatDec<10){
-    floatStr = " "+String(floatInt)+".0"+String(floatDec);
-  }
-  else{
-    floatStr = " "+String(floatInt)+"."+String(floatDec);
-  }
-  
-  //return the formatted string
-  return floatStr;
-}
-
-/*************************************************************************/
-/*                        tempOrSalinityToString                         */
-/*                        **********************                         */
-/*                                                                       */
-/* parameters: aFloat, a float value representing the float that is      */
-/*                 going to be converted to a string                     */
-/* returns: an string value that will represent the float as a string    */
-/*                                                                       */
-/* This function creates a string that will look like a float by         */
-/* splitting it into its whole and decimal parts, then adding them as    */
-/* two strings with the appropriate formatting for a temperature or      */
-/* salinity value.
-/*                                                                       */
-/*************************************************************************/
-
-String tempOrSalinityToString(float aFloat){
-  
-  //long int values
-  long floatLong;
-  int floatInt;
-  int floatDec;
-  
-  //string to be returned
-  String floatStr;
-  
-  //calculate the whole number and decimal number
-  floatLong = 10000*aFloat;
-  floatInt = floatLong/10000;
-  floatDec = abs(floatLong - (floatInt*10000));
- 
-  //handle case for losing three 0's in a number less than 10 (i.e. get .0009 instead of .9000)
-  //or losing two 0's in a number less than 100 but greater than 10 (i.e. .0091 rather than .9100)
-  // or losing a 0 in a number less than 1000 but greater than 100 (i.e. .0991 rather than .9110
-  if(floatDec<10){
-    floatStr = " "+String(floatInt)+".000"+String(floatDec);
-  }
-  else if((floatDec<100)&&(floatDec>=10)){
-    floatStr = " "+String(floatInt)+".00"+String(floatDec);
-  }
-  else if((floatDec<1000)&&(floatDec>=100)){
-    floatStr = " "+String(floatInt)+".0"+String(floatDec);
-  }
-  else{
-    floatStr = " "+String(floatInt)+'.'+String(floatDec);
-  }
-  
-  //return the formatted string
-  return floatStr;
-}
-
-/*************************************************************************/
-/*                                runTimer                               */
-/*                                ********                               */
-/*                                                                       */
-/* parameters: timeout, an int representing the desired runtime in ns    */
-/* returns: none                                                         */
-/*                                                                       */
-/* This function runs a timer for the given interval of time, uses code  */
-/* from TimerOne.h                                                       */
-/*                                                                       */
-/*************************************************************************/
-void runTimer(int timeOut){
-  long time;
-  Timer1.start();
-  long timeLast = Timer1.read();
-  long i = 0;
-  for(i = 0; i < 10000000; i++){
-    time = Timer1.read();
-    if (time > (timeLast + timeOut)){
-      Timer1.stop();
-      break;
-    }
-  }
-}
 
 /*************************************************************************/
 /*                              binaverage                               */
@@ -1239,4 +1095,175 @@ String binaverage(){
   
   //return the string
   return returnStr;
+}
+
+/*************************************************************************/
+/*                           pressureToString                            */
+/*                           ****************                            */
+/*                                                                       */
+/* parameters: aFloat, a float value representing the float that is      */
+/*                 going to be converted to a string                     */
+/* returns: an string value that will represent the float as a string    */
+/*                                                                       */
+/* This function creates a string that will look like a float by         */
+/* splitting it into its whole and decimal parts, then adding them as    */
+/* two strings with the appropriate formatting for a pressure value      */
+/*                                                                       */
+/*************************************************************************/
+
+String pressureToString(float aFloat){
+  
+  //long int values
+  long floatLong;
+  int floatInt;
+  int floatDec;
+  
+  //string to be returned
+  String floatStr;
+  
+  //calculate the whole number and decimal number
+  floatLong = 100*aFloat;
+  floatInt = floatLong/100;
+  floatDec = abs(floatLong - (floatInt*100));
+ 
+  //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
+  if(floatDec<10){
+    floatStr = " "+String(floatInt)+".0"+String(floatDec);
+  }
+  else{
+    floatStr = " "+String(floatInt)+"."+String(floatDec);
+  }
+  
+  //return the formatted string
+  return floatStr;
+}
+
+/*************************************************************************/
+/*                        tempOrSalinityToString                         */
+/*                        **********************                         */
+/*                                                                       */
+/* parameters: aFloat, a float value representing the float that is      */
+/*                 going to be converted to a string                     */
+/* returns: an string value that will represent the float as a string    */
+/*                                                                       */
+/* This function creates a string that will look like a float by         */
+/* splitting it into its whole and decimal parts, then adding them as    */
+/* two strings with the appropriate formatting for a temperature or      */
+/* salinity value.
+/*                                                                       */
+/*************************************************************************/
+
+String tempOrSalinityToString(float aFloat){
+  
+  //long int values
+  long floatLong;
+  int floatInt;
+  int floatDec;
+  
+  //string to be returned
+  String floatStr;
+  
+  //calculate the whole number and decimal number
+  floatLong = 10000*aFloat;
+  floatInt = floatLong/10000;
+  floatDec = abs(floatLong - (floatInt*10000));
+ 
+  //handle case for losing three 0's in a number less than 10 (i.e. get .0009 instead of .9000)
+  //or losing two 0's in a number less than 100 but greater than 10 (i.e. .0091 rather than .9100)
+  // or losing a 0 in a number less than 1000 but greater than 100 (i.e. .0991 rather than .9110
+  if(floatDec<10){
+    floatStr = " "+String(floatInt)+".000"+String(floatDec);
+  }
+  else if((floatDec<100)&&(floatDec>=10)){
+    floatStr = " "+String(floatInt)+".00"+String(floatDec);
+  }
+  else if((floatDec<1000)&&(floatDec>=100)){
+    floatStr = " "+String(floatInt)+".0"+String(floatDec);
+  }
+  else{
+    floatStr = " "+String(floatInt)+'.'+String(floatDec);
+  }
+  
+  //return the formatted string
+  return floatStr;
+}
+
+
+/*************************************************************************/
+/*                                debounce                               */
+/*                                ********                               */
+/*                                                                       */
+/* parameters: pin, an integer value representing the pin that is        */
+/*                 connected to the input being toggled                  */
+/* returns: an integer value that will be positive (1) if the pin is     */
+/*                 high and negative (-1) if the pin is low              */
+/*                                                                       */
+/* This function checks the logic level of a pin 6 times (once / ~50ms)  */
+/* and determines if it is high or low                                   */
+/*                                                                       */
+/*************************************************************************/
+
+int debounce(int pin){
+  int highOrLow = 0;
+  int highOrLowTotal = 0;
+  int i = 0;
+  
+  //check the given pin, if it is high, add 1 to the total, if it is low add 0 to the total.
+  //repeat this 6 times for accuracy, waiting ~50ms between each read of the pin.
+  for(i = 0; i < 6; i++){
+    if(digitalRead(pin)==HIGH){
+      highOrLow = 1;
+    }
+    else{
+      highOrLow = 0;
+    }
+    long time;
+    Timer1.start();
+    long timeLast = Timer1.read();
+    int i = 0;
+    for(i = 0; i < 100000; i++){
+      time = Timer1.read();
+      if (time > (timeLast + 49900)){
+        Timer1.stop();
+        break;
+      }
+    }
+    highOrLowTotal+=highOrLow;
+  }
+  
+  //if it is considered high (based on value of total after loop), return 1
+  if(highOrLowTotal >=2){
+    return 1;
+  }
+  
+  //if it is considered low (based on value of total after loop), return -1
+  else{
+    return -1;
+  }
+}
+
+
+/*************************************************************************/
+/*                                runTimer                               */
+/*                                ********                               */
+/*                                                                       */
+/* parameters: timeout, an int representing the desired runtime in ns    */
+/* returns: none                                                         */
+/*                                                                       */
+/* This function runs a timer for the given interval of time, uses code  */
+/* from TimerOne.h                                                       */
+/*                                                                       */
+/*************************************************************************/
+void runTimer(int timeOut){
+  long time;
+  Timer1.start();
+  long timeLast = Timer1.read();
+  long i = 0;
+  for(i = 0; i < 10000000; i++){
+    time = Timer1.read();
+    if (time > (timeLast + timeOut)){
+      Timer1.stop();
+      break;
+    }
+  }
 }
