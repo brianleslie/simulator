@@ -378,7 +378,11 @@ void loop(){
         int cpStrLen = cpStr.length()+1;
         cpStr.getBytes(cpStrBuffer, cpStrLen);
         Serial1.write(cpStrBuffer, cpStrLen);
+<<<<<<< HEAD
         Serial.println(cpStr);
+=======
+
+>>>>>>> 6fad3c306614bb910f910232ed5ec14d7cf17fc7
         //record that you have taken 1 sample
         count+=1;
         
@@ -1267,4 +1271,7 @@ void runTimer(int timeOut){
     }
   }
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6fad3c306614bb910f910232ed5ec14d7cf17fc7
