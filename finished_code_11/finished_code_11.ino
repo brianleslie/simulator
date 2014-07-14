@@ -364,6 +364,12 @@ void loop(){
         
         //leave continuous profiling mode if the pressure is less than 2 dbar
         if(minPress<=2){
+          String exitcp = "\n\rS>stopprofile";
+          int exitcpLen = exitcp.length()+1;
+          byte exitcpBuffer[100];
+          exitcp.getBytes(exitcpBuffer, exitcpLen);
+          Serial1.write(exitcpBuffer, exitcpLen);
+          detachInterrupt(0);
           cpMode = -1;
         }
         
@@ -377,7 +383,11 @@ void loop(){
             if(input.equals("stopprofile")){
               String exitcp = "\n\rS>stopprofile";
               int exitcpLen = exitcp.length()+1;
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
               byte exitcpBuffer[20];
+=======
+              byte exitcpBuffer[100];
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
               exitcp.getBytes(exitcpBuffer, exitcpLen);
               Serial1.write(exitcpBuffer, exitcpLen);
               detachInterrupt(0);
@@ -545,7 +555,7 @@ void loop(){
         //change the global variable ice avoidance to 1, which is detect mode
         else if(input.equals("id\r")){
           iceAvoidance = 1;
-          String icedMode = " ice detect mode on\n\rS>";
+          String icedMode = " ice detect mode on\n\n\rS>";
           int icedModeLen = icedMode.length()+1;
           byte icedModeBuffer[30];
           icedMode.getBytes(icedModeBuffer, icedModeLen);
@@ -556,7 +566,7 @@ void loop(){
         //change the global variable ice avoidance to 2, which is cap mode
         else if(input.equals("ic\r")){
           iceAvoidance = 2;
-          String icecMode = " ice cap mode on\n\rS>";
+          String icecMode = " ice cap mode on\n\n\rS>";
           int icecModeLen = icecMode.length()+1;
           byte icecModeBuffer[30];
           icecMode.getBytes(icecModeBuffer, icecModeLen);
@@ -567,7 +577,7 @@ void loop(){
         //change the global variable ice avoidance to 3, which is breakup mode
         else if(input.equals("ib\r")){
           iceAvoidance = 1;
-          String icebMode = " ice breakup mode on\n\rS>";
+          String icebMode = " ice breakup mode on\n\n\rS>";
           int icebModeLen = icebMode.length()+1;
           byte icebModeBuffer[30];
           icebMode.getBytes(icebModeBuffer, icebModeLen);
@@ -578,7 +588,7 @@ void loop(){
         //change the global variable ice avoidance to -1, which is normal mode
         else if(input.equals("id off\r")){
           iceAvoidance = -1;
-          String iceModeOff = " ice detect mode off\n\rS>";
+          String iceModeOff = " ice detect mode off\n\n\rS>";
           int iceModeOffLen = iceModeOff.length()+1;
           byte iceModeOffBuffer[30];
           iceModeOff.getBytes(iceModeOffBuffer, iceModeOffLen);
@@ -589,7 +599,7 @@ void loop(){
         //change the global variable ice avoidance to -1, which is normal mode
         else if(input.equals("ic off\r")){
           iceAvoidance = -1;
-          String icecModeOff = " ice cap mode off\n\rS>";
+          String icecModeOff = " ice cap mode off\n\n\rS>";
           int icecModeOffLen = icecModeOff.length()+1;
           byte icecModeOffBuffer[30];
           icecModeOff.getBytes(icecModeOffBuffer, icecModeOffLen);
@@ -600,7 +610,7 @@ void loop(){
         //change the global variable ice avoidance to -1, which is normal mode
         else if(input.equals("ib off\r")){
           iceAvoidance = -1;
-          String icebModeOff = " ice breakup mode off\n\rS>";
+          String icebModeOff = " ice breakup mode off\n\n\rS>";
           int icebModeOffLen = icebModeOff.length()+1;
           byte icebModeOffBuffer[30];
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
@@ -752,12 +762,20 @@ String getReadingFromPiston(int select){
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
   if((iceAvoidance == 1)&&(pressure < 55)){
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = -2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
   else if((iceAvoidance == 2)&&(pressure < 20)){
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = -2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
@@ -927,12 +945,20 @@ String binaverage(){
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
   if((iceAvoidance == 1)&&(pressure < 55)){
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = 2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
   else if((iceAvoidance == 2)&&(pressure < 20)){
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
     temperature = 2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
@@ -956,7 +982,7 @@ String binaverage(){
   }
   
   //calculate a random value for the number of samples per bin
-  samplesUsed = ((samplesLeft%5) + random(0,30));
+  samplesUsed = ((samplesLeft%5) + random(10,30));
   
   //ensure that there are not too many samples used
   if(samplesLeft-samplesUsed <= 0){
