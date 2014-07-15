@@ -1,11 +1,13 @@
 /*************************************************************************/
-/*                            finished_code_9.ino                        */
-/*                            *******************                        */
+/*                            APF-9_APF-11_sim.ino                       */
+/*                            ********************                       */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
 /*                                                                       */
-/* APF-9 differs from APF-11 in the way it exits continuous profiling    */
-/* mode.                                                                 */
+/* Version [1.0] supports simulation of APF-9 and APF-11. Currently      */
+/* will support getting P, T (11 only), PT, or PTS readings; querrying   */
+/* firmware / serial number (9 only); configuration; continuous profile, */
+/* binaverage; ice avoidance; displaying calibration coefficients.       */
 /*                                                                       */
 /*************************************************************************/
 
@@ -66,6 +68,15 @@
 /*                  created by converting their corresponding strings to */
 /*                  bytes using a built-in function                      */
 /*                                                                       */
+/* pOrPTS: an array of strings that determine whether the output is just */
+/*                  a p reading or a pts reading, necessary to pass test */
+/*                  during configuration, irrelevent to actual operation */
+/*                                                                       */
+/* pOrPTSsel: an int that represents the array index for the pOrPTS      */
+/*                  array, 1 (default) means PTS, 0 means P. this will   */
+/*                  be changed based on serial messages received from    */
+/*                  APF board                                            */
+/*                                                                       */
 /* iceAvoidance: an int that represents which ice avoidance protocol is  */
 /*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
 /*                                                                       */
@@ -85,9 +96,9 @@ int inc = 0;
 int last = -1;
 int first = -1;
 
-String msg = "SBE 41CP UW. V 2.0";
+String msg = "SBE 41CP UW. V 2.0\r\nS>";
 int msgLen = msg.length()+1;
-byte cmdMode[100];
+byte msgBuffer[100];
 
 String msg2;
 int msg2Len;
@@ -101,15 +112,13 @@ String msg4;
 int msg4Len;
 byte p[100];
 
-String cMode = "\r\nS>";
-int cModeLen;
-byte cModeBuffer[100];
-
 String pOrPTS[2] = {"P only", "PTS"};
 
 int pOrPTSsel = 1;
 
 int iceAvoidance = -1;
+
+String stopprofile = "stop";
 
 /*************************************************************************/
 /*                            function prototypes                        */
@@ -214,6 +223,7 @@ void checkLine(){
     //else don't do anything
     else{
     }
+    
   }
 }
 
@@ -292,12 +302,10 @@ void loop(){
     //if it is 1, convert the global string msg to the global byte array cmdMode
     //then send the array over Serial1, reset interruptMessage to 0, then leave the loop
     case 1:
-      msg.getBytes(cmdMode, msgLen);
-      Serial1.write(cmdMode, msgLen);
       delay(1300);
-      cModeLen = cMode.length()+1;
-      cMode.getBytes(cModeBuffer, cModeLen);
-      Serial1.write(cModeBuffer, cModeLen);
+      msgLen = msg.length()+1;
+      msg.getBytes(msgBuffer, msgLen);
+      Serial1.write(msgBuffer, msgLen);
       interruptMessage = 0;
       break;
       
@@ -309,8 +317,6 @@ void loop(){
       msg2 = getReadingFromPiston(2);
       msg2Len = msg2.length()+1;
       msg2.getBytes(pts, msg2Len);
-      Serial.println(msg2);
-      delay(500);
       Serial1.write(pts, msg2Len);
       interruptMessage = 0;
       break;
@@ -349,6 +355,7 @@ void loop(){
   //over the serial ports. To be in continuous profiling mode, the simulator needs to be
   //in command mode, so the loop for continuous profiling is also handled here
   if(commandMode == 1){
+    
     //ignore the interrupts on pin 2 once at the beginning
     detachInterrupt(0);
     
@@ -360,65 +367,44 @@ void loop(){
       /*************************************************************************/
         
       //contiuous profiling mode is turned on by the startprofile command over serial
-      if(cpMode == 1){
+      while(cpMode == 1){
         
-        attachInterrupt(0, checkLine, RISING);
+        //only take sample once every 1 sec (delay .95 sec)
+        delay(950);
         
-        while(cpMode == 1){
-          
-          //only take sample once every 1 sec (delay .95 sec)
-          //start the timer, once  the current time is ~200ms more than the first reading, continue to check the hardware lines
-          long time;
-          Timer1.start();
-          long timeLast = Timer1.read();
-          int i = 0;
-          for(i = 0; i < 100000; i++){
-            time = Timer1.read();
-            if (time > (timeLast + 949900)){
-              Timer1.stop();
-              break;
+        //clear out any junk value on pin A0
+        analogRead(A0);
+        
+        //create an array of bytes (a PTS reading) based on the value of the pin A0
+        //then send it over Serial1
+        byte cpStrBuffer[100];
+        String cpStr = getReadingFromPiston(2);
+        int cpStrLen = cpStr.length()+1;
+        cpStr.getBytes(cpStrBuffer, cpStrLen);
+        Serial1.write(cpStrBuffer, cpStrLen);
+        Serial.println(cpStr);
+        //record that you have taken 1 sample
+        count+=1;
+        
+        //leave continuous profiling mode if the stopprofile command is received
+        if(Serial1.available()>0){
+          String input = "";
+          while(Serial1.available()>0){  
+            char temp;
+            temp = char(Serial1.read());
+            if(temp=='s'){
+              input+=temp;
             }
-          }
-          
-          //clear out any junk value on pin A0
-          analogRead(A0);
-          
-          //create an array of bytes (a PTS reading) based on the value of the pin A0
-          //then send it over Serial1
-          byte cpStrBuffer[100];
-          String cpStr = getReadingFromPiston(2);
-          int cpStrLen = cpStr.length()+1;
-          cpStr.getBytes(cpStrBuffer, cpStrLen);
-          Serial1.write(cpStrBuffer, cpStrLen);
-          
-          //record that you have taken 1 sample
-          count+=1;
-          
-          //leave continuous profiling mode if the pressure is less than 2 dbar
-          if(minPress<=2){
-            String exitcp = "profile stopped";
-            int exitcpLen = exitcp.length()+1;
-            byte exitcpBuffer[100];
-            exitcp.getBytes(exitcpBuffer, exitcpLen);
-            Serial1.write(exitcpBuffer, exitcpLen);
-            detachInterrupt(0);
-            cpMode = -1;
-          }
-          
-          //leave continuous profiling mode if the stopprofile command is received
-          if(Serial1.available()>0){
-            String input = "";
-            while(1){
-              if(Serial1.available()>0){  
-                char temp;
-                temp = char(Serial1.read());
-                input+=temp;
-                if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
-                  break;
-                }
-              }
+            if(temp=='t'){
+              input+=temp;
             }
-            if(input.equals("stopprofile")){
+            if(temp=='o'){
+              input+=temp;
+            }
+            if(temp=='p'){
+              input+=temp;
+            }
+            if(input.equals(stopprofile)){
               String exitcp = "profile stopped";
               int exitcpLen = exitcp.length()+1;
               byte exitcpBuffer[100];
@@ -436,9 +422,10 @@ void loop(){
       /*************************************************************************/
         
       
-      //check for a message in Serial1, it there is, create a blank string, then add each character in the 
+      //check for a message in Serial1, if there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
-      //is actually sent, if it is not the carriage return, wait fƒor the next character
+      //is actually sent, if it is not the carriage return, wait for the next character, two exceptions 
+      //are the input strings startprofile and stopprofile (used for continuous profiling mode)
       if(Serial1.available()>0){
         String input = "";
         while(1){
@@ -453,9 +440,6 @@ void loop(){
         }
         
         //if the input is a carriage return, send back the sbe command prompt (S>) as a series of byes
-        //the command prompt should also be returned during the config command as a response to each
-        //one of the parameters being set, also need to handle the configuring of pts output during
-        //cp mode (the very last "outputpts=y" control statement), this will also return the command prompt 
         if(input.equals("\r")){
           String cmdMode = "\r\nS>";
           int cmdModeLen = cmdMode.length()+1;
@@ -463,6 +447,8 @@ void loop(){
           cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
           Serial1.write(cmdModeBuffer, cmdModeLen);
         }
+        
+        //if the input is pcutoff=2.0, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("pcutoff=2.0\r")){
           delay(10);
           String pcutoff = "\r\nS>pcutoff=2.0";
@@ -471,6 +457,9 @@ void loop(){
           pcutoff.getBytes(pcutoffBuffer, pcutoffLen);
           Serial1.write(pcutoffBuffer, pcutoffLen);
         }
+        
+        //if the input is outputpts=y, send back the command prompt and echo the input as a series of bytes
+        //and change pOrPTSsel to 1 so that the ds command will display pts
         else if(input.equals("outputpts=y\r")){
           delay(10);
           String optsy = "\r\nS>outputpts=y";
@@ -480,6 +469,8 @@ void loop(){
           Serial1.write(optsyBuffer, optsyLen);
           pOrPTSsel = 1;
         }
+        
+        //if the input is tswait=20, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("tswait=20\r")){
           delay(10);
           String tsw = "\r\nS>tswait=20";
@@ -491,7 +482,9 @@ void loop(){
         }
         
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
-        //info based on an actual seabird, can edit field in this string if necessary)
+        //info based on an actual seabird, can edit field in this string if necessary), there should be 3 
+        //fields that will vary: the number of bins, number of samples, and whether it is expecting only P
+        //or pts for real time output
         else if(input.equals("ds\r")){
           String ds = "\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
           "\r\nfirmware compilation date: 18 December 2007 09:20"
@@ -564,6 +557,7 @@ void loop(){
           byte cpBuffer[100];
           cp.getBytes(cpBuffer, cpLen);
           Serial1.write(cpBuffer, cpLen);
+          attachInterrupt(0, checkLine, RISING);
           cpMode = 1;
         }
         
@@ -584,14 +578,12 @@ void loop(){
         //during continuous profiling mode. set da to 1 which will allow for the
         //da command to be run (makes sure there is actual data to dump when requested)
         else if(input.equals("binaverage\r")){
-          digitalWrite(8, LOW);
           nBins = (int(maxPress)/2) + 1;
-          String binavg = "\n\rS>binaverage\n\rsamples = "+String(count)+", maxPress = "+pressureToString(maxPress)+"\n\rrd: 0\n\ravg: 0\n\n\rdone, nbins = "+String(nBins)+"\n\rS>";
+          String binavg = "\r\nS>binaverage\r\nsamples = "+String(count)+", maxPress = "+pressureToString(maxPress)+"\r\nrd: 0\r\navg: 0\r\n\ndone, nbins = "+String(nBins)+"\r\nS>";
           int binavgLen = binavg.length()+1;
           byte binavgBuffer[100];
           binavg.getBytes(binavgBuffer, binavgLen);
           Serial1.write(binavgBuffer, binavgLen);
-          delay(200);
           da = 1;
         }
 
@@ -644,6 +636,7 @@ void loop(){
           attachInterrupt(0, checkLine, RISING);
         }
         
+        //if the input is autobinavg=n, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("autobinavg=n\r")){
           delay(10);
           String aba = "\r\nS>autobinavg=n";
@@ -652,6 +645,8 @@ void loop(){
           aba.getBytes(abaBuffer, abaLen);
           Serial1.write(abaBuffer, abaLen);
         }
+        
+        //if the input is top_bin_interval=2, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("top_bin_interval=2\r")){
           delay(10);
           String tbi = "\r\nS>top_bin_interval=2";
@@ -660,6 +655,8 @@ void loop(){
           tbi.getBytes(tbiBuffer, tbiLen);
           Serial1.write(tbiBuffer, tbiLen);
         }
+        
+        //if the input is top_bin_size=2, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("top_bin_size=2\r")){
           delay(10);
           String tbs = "\r\nS>top_bin_size=2";
@@ -668,6 +665,8 @@ void loop(){
           tbs.getBytes(tbsBuffer, tbsLen);
           Serial1.write(tbsBuffer, tbsLen);
         }
+        
+        //if the input is top_bin_max=10, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("top_bin_max=10\r")){
           delay(10);
           String tbm = "\r\nS>top_bin_max=10";
@@ -676,6 +675,8 @@ void loop(){
           tbm.getBytes(tbmBuffer, tbmLen);
           Serial1.write(tbmBuffer, tbmLen);
         }
+        
+        //if the input is middle_bin_interval=2, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("middle_bin_interval=2\r")){
           delay(10);
           String mbi = "\r\nS>middle_bin_interval=2";
@@ -684,6 +685,8 @@ void loop(){
           mbi.getBytes(mbiBuffer, mbiLen);
           Serial1.write(mbiBuffer, mbiLen);
         }
+        
+        //if the input is middle_bin_size=2, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("middle_bin_size=2\r")){
           delay(10);
           String mbs = "\r\nS>middle_bin_size=2";
@@ -692,6 +695,8 @@ void loop(){
           mbs.getBytes(mbsBuffer, mbsLen);
           Serial1.write(mbsBuffer, mbsLen);
         }
+        
+        //if the input is middle_bin_max=20, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("middle_bin_max=20\r")){
           delay(10);
           String mbm = "\r\nS>middle_bin_max=20";
@@ -700,6 +705,8 @@ void loop(){
           mbm.getBytes(mbmBuffer, mbmLen);
           Serial1.write(mbmBuffer, mbmLen);
         }
+        
+        //if the input is bottom_bin_interval=2, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("bottom_bin_interval=2\r")){
           delay(10);
           String bbi = "\r\nS>bottom_bin_interval=2";
@@ -708,6 +715,8 @@ void loop(){
           bbi.getBytes(bbiBuffer, bbiLen);
           Serial1.write(bbiBuffer, bbiLen);
         }
+        
+        //if the input is bottom_bin_size=2, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("bottom_bin_size=2\r")){
           delay(10);
           String bbs = "\r\nS>bottom_bin_size=2";
@@ -716,6 +725,8 @@ void loop(){
           bbs.getBytes(bbsBuffer, bbsLen);
           Serial1.write(bbsBuffer, bbsLen);
         }
+        
+        //if the input is includetransitionbin=n, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("includetransitionbin=n\r")){
           delay(10);
           String itb = "\r\nS>includetransitionbin=n";
@@ -724,6 +735,8 @@ void loop(){
           itb.getBytes(itbBuffer, itbLen);
           Serial1.write(itbBuffer, itbLen);
         }
+        
+        //if the input is includenbin=y, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("includenbin=y\r")){
           delay(10);
           String ib = "\r\nS>includenbin=y";
@@ -732,6 +745,9 @@ void loop(){
           ib.getBytes(ibBuffer, ibLen);
           Serial1.write(ibBuffer, ibLen);
         }
+        
+        //if the input is outputpts=n, send back the command prompt and echo the input as a series of bytes
+        //and set pOrPTSsel to 0 so that the ds command will display p only
         else if(input.equals("outputpts=n\r")){
           delay(10);
           String optsn = "\r\nS>outputpts=n";
@@ -808,76 +824,14 @@ void loop(){
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
         }
         
-        //if the input is build send back that the simulator is setup for APF-9 simulation
-        //by returning APF-9 as a series of bytes of serial
-        else if(input.equals("build\r")){
-          String build = "\r\nAPF-9\r\nS>";
-          int buildLen = build.length()+1;
-          byte buildBuffer[100];
-          build.getBytes(buildBuffer, buildLen);
-          Serial1.write(buildBuffer, buildLen);
-        }
-        
         else{
         }
+        
       }
     }
   }
 }
 
-
-/*************************************************************************/
-/*                                debounce                               */
-/*                                ********                               */
-/*                                                                       */
-/* parameters: pin, an integer value representing the pin that is        */
-/*                 connected to the input being toggled                  */
-/* returns: an integer value that will be positive (1) if the pin is     */
-/*                 high and negative (-1) if the pin is low              */
-/*                                                                       */
-/* This function checks the logic level of a pin 6 times (once / ~50ms)  */
-/* and determines if it is high or low                                   */
-/*                                                                       */
-/*************************************************************************/
-
-int debounce(int pin){
-  int highOrLow = 0;
-  int highOrLowTotal = 0;
-  int i = 0;
-  
-  //check the given pin, if it is high, add 1 to the total, if it is low add 0 to the total.
-  //repeat this 6 times for accuracy, waiting ~50ms between each read of the pin.
-  for(i = 0; i < 6; i++){
-    if(digitalRead(pin)==HIGH){
-      highOrLow = 1;
-    }
-    else{
-      highOrLow = 0;
-    }
-    long time;
-    Timer1.start();
-    long timeLast = Timer1.read();
-    int i = 0;
-    for(i = 0; i < 100000; i++){
-      time = Timer1.read();
-      if (time > (timeLast + 49900)){
-        Timer1.stop();
-        break;
-      }
-    }
-    highOrLowTotal+=highOrLow;
-  }
-  
-  //if it is considered high (based on value of total after loop), return 1
-  if(highOrLowTotal >=2){
-    return 1;
-  }
-  
-  //if it is considered low (based on value of total after loop), return -1
-  else{
-    return -1;
-  }
-}
 
 /*************************************************************************/
 /*                             getReadingFromPiston                      */
@@ -975,12 +929,12 @@ String getReadingFromPiston(int select){
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
   else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   //calculate temperature normally
   else{ 
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   tStr = tempOrSalinityToString(temperature);
@@ -1021,121 +975,6 @@ String getReadingFromPiston(int select){
   return sendMessage;
 }
 
-/*************************************************************************/
-/*                           pressureToString                            */
-/*                           ****************                            */
-/*                                                                       */
-/* parameters: aFloat, a float value representing the float that is      */
-/*                 going to be converted to a string                     */
-/* returns: an string value that will represent the float as a string    */
-/*                                                                       */
-/* This function creates a string that will look like a float by         */
-/* splitting it into its whole and decimal parts, then adding them as    */
-/* two strings with the appropriate formatting for a pressure value      */
-/*                                                                       */
-/*************************************************************************/
-
-String pressureToString(float aFloat){
-  
-  //long int values
-  long floatLong;
-  int floatInt;
-  int floatDec;
-  
-  //string to be returned
-  String floatStr;
-  
-  //calculate the whole number and decimal number
-  floatLong = 100*aFloat;
-  floatInt = floatLong/100;
-  floatDec = floatLong - (floatInt*100);
- 
-  //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
-  if(floatDec<10){
-    floatStr = " "+String(floatInt)+".0"+String(floatDec);
-  }
-  else{
-    floatStr = " "+String(floatInt)+"."+String(floatDec);
-  }
-  
-  //return the formatted string
-  return floatStr;
-}
-
-/*************************************************************************/
-/*                        tempOrSalinityToString                         */
-/*                        **********************                         */
-/*                                                                       */
-/* parameters: aFloat, a float value representing the float that is      */
-/*                 going to be converted to a string                     */
-/* returns: an string value that will represent the float as a string    */
-/*                                                                       */
-/* This function creates a string that will look like a float by         */
-/* splitting it into its whole and decimal parts, then adding them as    */
-/* two strings with the appropriate formatting for a temperature or      */
-/* salinity value.
-/*                                                                       */
-/*************************************************************************/
-
-String tempOrSalinityToString(float aFloat){
-  
-  //long int values
-  long floatLong;
-  int floatInt;
-  int floatDec;
-  
-  //string to be returned
-  String floatStr;
-  
-  //calculate the whole number and decimal number
-  floatLong = 10000*aFloat;
-  floatInt = floatLong/10000;
-  floatDec = floatLong - (floatInt*10000);
- 
-  //handle case for losing three 0's in a number less than 10 (i.e. get .0009 instead of .9000)
-  //or losing two 0's in a number less than 100 but greater than 10 (i.e. .0091 rather than .9100)
-  // or losing a 0 in a number less than 1000 but greater than 100 (i.e. .0991 rather than .9110
-  if(floatDec<10){
-    floatStr = " "+String(floatInt)+".000"+String(floatDec);
-  }
-  else if((floatDec<100)&&(floatDec>=10)){
-    floatStr = " "+String(floatInt)+".00"+String(floatDec);
-  }
-  else if((floatDec<1000)&&(floatDec>=100)){
-    floatStr = " "+String(floatInt)+".0"+String(floatDec);
-  }
-  else{
-    floatStr = " "+String(floatInt)+'.'+String(floatDec);
-  }
-  
-  //return the formatted string
-  return floatStr;
-}
-
-/*************************************************************************/
-/*                                runTimer                               */
-/*                                ********                               */
-/*                                                                       */
-/* parameters: timeout, an int representing the desired runtime in ns    */
-/* returns: none                                                         */
-/*                                                                       */
-/* This function runs a timer for the given interval of time, uses code  */
-/* from TimerOne.h                                                       */
-/*                                                                       */
-/*************************************************************************/
-void runTimer(int timeOut){
-  long time;
-  Timer1.start();
-  long timeLast = Timer1.read();
-  long i = 0;
-  for(i = 0; i < 10000000; i++){
-    time = Timer1.read();
-    if (time > (timeLast + timeOut)){
-      Timer1.stop();
-      break;
-    }
-  }
-}
 
 /*************************************************************************/
 /*                              binaverage                               */
@@ -1196,12 +1035,12 @@ String binaverage(){
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
   else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   //calculate temperature normally
   else{ 
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.2-float(pressure*0.0088);
   }
   
   //calculate salinity normally
@@ -1251,3 +1090,175 @@ String binaverage(){
   //return the string
   return returnStr;
 }
+
+/*************************************************************************/
+/*                           pressureToString                            */
+/*                           ****************                            */
+/*                                                                       */
+/* parameters: aFloat, a float value representing the float that is      */
+/*                 going to be converted to a string                     */
+/* returns: an string value that will represent the float as a string    */
+/*                                                                       */
+/* This function creates a string that will look like a float by         */
+/* splitting it into its whole and decimal parts, then adding them as    */
+/* two strings with the appropriate formatting for a pressure value      */
+/*                                                                       */
+/*************************************************************************/
+
+String pressureToString(float aFloat){
+  
+  //long int values
+  long floatLong;
+  int floatInt;
+  int floatDec;
+  
+  //string to be returned
+  String floatStr;
+  
+  //calculate the whole number and decimal number
+  floatLong = 100*aFloat;
+  floatInt = floatLong/100;
+  floatDec = abs(floatLong - (floatInt*100));
+ 
+  //handle case for losing the 0 in a number less than 10 (i.e. get 09 instead of 9)
+  if(floatDec<10){
+    floatStr = " "+String(floatInt)+".0"+String(floatDec);
+  }
+  else{
+    floatStr = " "+String(floatInt)+"."+String(floatDec);
+  }
+  
+  //return the formatted string
+  return floatStr;
+}
+
+/*************************************************************************/
+/*                        tempOrSalinityToString                         */
+/*                        **********************                         */
+/*                                                                       */
+/* parameters: aFloat, a float value representing the float that is      */
+/*                 going to be converted to a string                     */
+/* returns: an string value that will represent the float as a string    */
+/*                                                                       */
+/* This function creates a string that will look like a float by         */
+/* splitting it into its whole and decimal parts, then adding them as    */
+/* two strings with the appropriate formatting for a temperature or      */
+/* salinity value.
+/*                                                                       */
+/*************************************************************************/
+
+String tempOrSalinityToString(float aFloat){
+  
+  //long int values
+  long floatLong;
+  int floatInt;
+  int floatDec;
+  
+  //string to be returned
+  String floatStr;
+  
+  //calculate the whole number and decimal number
+  floatLong = 10000*aFloat;
+  floatInt = floatLong/10000;
+  floatDec = abs(floatLong - (floatInt*10000));
+ 
+  //handle case for losing three 0's in a number less than 10 (i.e. get .0009 instead of .9000)
+  //or losing two 0's in a number less than 100 but greater than 10 (i.e. .0091 rather than .9100)
+  // or losing a 0 in a number less than 1000 but greater than 100 (i.e. .0991 rather than .9110
+  if(floatDec<10){
+    floatStr = " "+String(floatInt)+".000"+String(floatDec);
+  }
+  else if((floatDec<100)&&(floatDec>=10)){
+    floatStr = " "+String(floatInt)+".00"+String(floatDec);
+  }
+  else if((floatDec<1000)&&(floatDec>=100)){
+    floatStr = " "+String(floatInt)+".0"+String(floatDec);
+  }
+  else{
+    floatStr = " "+String(floatInt)+'.'+String(floatDec);
+  }
+  
+  //return the formatted string
+  return floatStr;
+}
+
+
+/*************************************************************************/
+/*                                debounce                               */
+/*                                ********                               */
+/*                                                                       */
+/* parameters: pin, an integer value representing the pin that is        */
+/*                 connected to the input being toggled                  */
+/* returns: an integer value that will be positive (1) if the pin is     */
+/*                 high and negative (-1) if the pin is low              */
+/*                                                                       */
+/* This function checks the logic level of a pin 6 times (once / ~50ms)  */
+/* and determines if it is high or low                                   */
+/*                                                                       */
+/*************************************************************************/
+
+int debounce(int pin){
+  int highOrLow = 0;
+  int highOrLowTotal = 0;
+  int i = 0;
+  
+  //check the given pin, if it is high, add 1 to the total, if it is low add 0 to the total.
+  //repeat this 6 times for accuracy, waiting ~50ms between each read of the pin.
+  for(i = 0; i < 6; i++){
+    if(digitalRead(pin)==HIGH){
+      highOrLow = 1;
+    }
+    else{
+      highOrLow = 0;
+    }
+    long time;
+    Timer1.start();
+    long timeLast = Timer1.read();
+    int i = 0;
+    for(i = 0; i < 100000; i++){
+      time = Timer1.read();
+      if (time > (timeLast + 49900)){
+        Timer1.stop();
+        break;
+      }
+    }
+    highOrLowTotal+=highOrLow;
+  }
+  
+  //if it is considered high (based on value of total after loop), return 1
+  if(highOrLowTotal >=2){
+    return 1;
+  }
+  
+  //if it is considered low (based on value of total after loop), return -1
+  else{
+    return -1;
+  }
+}
+
+
+/*************************************************************************/
+/*                                runTimer                               */
+/*                                ********                               */
+/*                                                                       */
+/* parameters: timeout, an int representing the desired runtime in ns    */
+/* returns: none                                                         */
+/*                                                                       */
+/* This function runs a timer for the given interval of time, uses code  */
+/* from TimerOne.h                                                       */
+/*                                                                       */
+/*************************************************************************/
+void runTimer(int timeOut){
+  long time;
+  Timer1.start();
+  long timeLast = Timer1.read();
+  long i = 0;
+  for(i = 0; i < 10000000; i++){
+    time = Timer1.read();
+    if (time > (timeLast + timeOut)){
+      Timer1.stop();
+      break;
+    }
+  }
+}
+
