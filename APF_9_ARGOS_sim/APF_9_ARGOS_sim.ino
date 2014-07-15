@@ -340,14 +340,24 @@ void loop(){
           Serial1.write(cmdModeBuffer, cmdModeLen);
         }
         
-        //if the input is pumpfastpt=0.25, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("pumpfastpt=0.25\r")){
+        //if the input is pumpfastpt=y, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pumpfastpt=y\r")){
           delay(10);
-          String pfp = "\r\nS>pumpfastpt=0.25";
+          String pfp = "\r\nS>pumpfastpt=y";
           int pfpLen = pfp.length()+1;
           byte pfpBuffer[100];
           pfp.getBytes(pfpBuffer, pfpLen);
           Serial1.write(pfpBuffer, pfpLen);
+        }
+        
+        //if the input is pumpfastpt=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pumpfastpt=n\r")){
+          delay(10);
+          String pfpn = "\r\nS>pumpfastpt=n";
+          int pfpnLen = pfpn.length()+1;
+          byte pfpnBuffer[100];
+          pfpn.getBytes(pfpnBuffer, pfpnLen);
+          Serial1.write(pfpnBuffer, pfpnLen);
         }
         
         //if the input is dsreplyformat=s, send back the command prompt and echo the input as a series of bytes
@@ -846,4 +856,3 @@ void runTimer(int timeOut){
     }
   }
 }
-
