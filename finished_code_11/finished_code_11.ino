@@ -383,8 +383,23 @@ void loop(){
             char temp;
             temp = char(Serial1.read());
             input+=temp;
+<<<<<<< HEAD
+            if(input.equals("stopprofile")){
+              String exitcp = "\n\rS>stopprofile";
+              int exitcpLen = exitcp.length()+1;
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
+              byte exitcpBuffer[20];
+=======
+              byte exitcpBuffer[100];
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
+              exitcp.getBytes(exitcpBuffer, exitcpLen);
+              Serial1.write(exitcpBuffer, exitcpLen);
+              detachInterrupt(0);
+              cpMode = -1;
+=======
             if((temp=='\r')||(input.equals("stopprofile"))){
               break;
+>>>>>>> b4a52101c9c1a4986c20b39031fd81bd03817050
             }
           }
           if(input.equals("stopprofile")){
@@ -427,7 +442,7 @@ void loop(){
         if(input.equals("\r")){
           String cmdMode = "\r\nS>";
           int cmdModeLen = cmdMode.length()+1;
-          byte cmdModeBuffer[100];
+          byte cmdModeBuffer[10];
           cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
           Serial1.write(cmdModeBuffer, cmdModeLen);
         }
@@ -529,7 +544,7 @@ void loop(){
         else if(input.equals("startprofile")){
           String cp = "\r\nS>startprofile\r\nprofile started, pump delay = 0 seconds\r\nS>";
           int cpLen = cp.length()+1;
-          byte cpBuffer[100];
+          byte cpBuffer[50];
           cp.getBytes(cpBuffer, cpLen);
           Serial1.write(cpBuffer, cpLen);
           attachInterrupt(0, checkLine, RISING);
@@ -542,7 +557,7 @@ void loop(){
         else if(input.equals("stopprofile")){
           String exitcp = "stopprofile";
           int exitcpLen = exitcp.length()+1;
-          byte exitcpBuffer[100];
+          byte exitcpBuffer[20];
           exitcp.getBytes(exitcpBuffer, exitcpLen);
           Serial1.write(exitcpBuffer, exitcpLen);
           detachInterrupt(0);
@@ -594,7 +609,7 @@ void loop(){
           //send upload complete at end of all samples
           String complete = "\r\nupload complete\r\nS>";
           int completeLen = complete.length()+1;
-          byte completeBuffer[100];
+          byte completeBuffer[30];
           complete.getBytes(completeBuffer, completeLen);
           Serial1.write(completeBuffer, completeLen);
           
@@ -612,7 +627,7 @@ void loop(){
         else if(input.equals("qsr\r")){
           String cmdMode = "\r\nS>qsr\r\npowering down\r\nS>";
           int cmdModeLen = cmdMode.length()+1;
-          byte cmdModeBuffer[100];
+          byte cmdModeBuffer[30];
           cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
           Serial1.write(cmdModeBuffer, cmdModeLen);
           commandMode = -1;
@@ -724,7 +739,7 @@ void loop(){
           iceAvoidance = 1;
           String icedMode = "\r\nice detect mode on\r\nS>";
           int icedModeLen = icedMode.length()+1;
-          byte icedModeBuffer[100];
+          byte icedModeBuffer[30];
           icedMode.getBytes(icedModeBuffer, icedModeLen);
           Serial1.write(icedModeBuffer, icedModeLen);
         }
@@ -735,7 +750,7 @@ void loop(){
           iceAvoidance = 2;
           String icecMode = "\r\nice cap mode on\r\nS>";
           int icecModeLen = icecMode.length()+1;
-          byte icecModeBuffer[100];
+          byte icecModeBuffer[30];
           icecMode.getBytes(icecModeBuffer, icecModeLen);
           Serial1.write(icecModeBuffer, icecModeLen);
         }
@@ -746,7 +761,7 @@ void loop(){
           iceAvoidance = 1;
           String icebMode = "\r\nice breakup mode on\r\nS>";
           int icebModeLen = icebMode.length()+1;
-          byte icebModeBuffer[100];
+          byte icebModeBuffer[30];
           icebMode.getBytes(icebModeBuffer, icebModeLen);
           Serial1.write(icebModeBuffer, icebModeLen);
         }
@@ -757,7 +772,7 @@ void loop(){
           iceAvoidance = -1;
           String iceModeOff = "\r\nice detect mode off\r\nS>";
           int iceModeOffLen = iceModeOff.length()+1;
-          byte iceModeOffBuffer[100];
+          byte iceModeOffBuffer[30];
           iceModeOff.getBytes(iceModeOffBuffer, iceModeOffLen);
           Serial1.write(iceModeOffBuffer, iceModeOffLen);
         }
@@ -768,7 +783,7 @@ void loop(){
           iceAvoidance = -1;
           String icecModeOff = "\r\nice cap mode off\r\nS>";
           int icecModeOffLen = icecModeOff.length()+1;
-          byte icecModeOffBuffer[100];
+          byte icecModeOffBuffer[30];
           icecModeOff.getBytes(icecModeOffBuffer, icecModeOffLen);
           Serial1.write(icecModeOffBuffer, icecModeOffLen);
         }
@@ -779,7 +794,7 @@ void loop(){
           iceAvoidance = -1;
           String icebModeOff = "\r\nice breakup mode off\r\nS>";
           int icebModeOffLen = icebModeOff.length()+1;
-          byte icebModeOffBuffer[100];
+          byte icebModeOffBuffer[30];
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
         }
@@ -940,22 +955,38 @@ String getReadingFromPiston(int select){
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
   if((iceAvoidance == 1)&&(pressure < 55)){
+<<<<<<< HEAD
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
+    temperature = -2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
+=======
     temperature = -2.00;
+>>>>>>> b4a52101c9c1a4986c20b39031fd81bd03817050
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
   else if((iceAvoidance == 2)&&(pressure < 20)){
+<<<<<<< HEAD
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
+    temperature = -2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
+=======
     temperature = -2.00;
+>>>>>>> b4a52101c9c1a4986c20b39031fd81bd03817050
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
   else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.6-float(pressure*0.0212)+float(pressure*pressure*0.000006);
   }
   
   //calculate temperature normally
   else{ 
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.6-float(pressure*0.0212)+float(pressure*pressure*0.000006);
   }
   
   tStr = tempOrSalinityToString(temperature);
@@ -1161,22 +1192,38 @@ String binaverage(){
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
   if((iceAvoidance == 1)&&(pressure < 55)){
+<<<<<<< HEAD
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
+    temperature = 2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
+=======
     temperature = -2.00;
+>>>>>>> b4a52101c9c1a4986c20b39031fd81bd03817050
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
   else if((iceAvoidance == 2)&&(pressure < 20)){
+<<<<<<< HEAD
+<<<<<<< HEAD:finished_code/finished_code/finished_code.ino
+    temperature = 2.00 - (random(0,100)/100);
+=======
+    temperature = float(float(-1.78) - float(float((random(0,100))/float(100))));
+>>>>>>> 1a96352ba0e208ca2e0426f0f3df368ca727846c:finished_code_11/finished_code_11.ino
+=======
     temperature = -2.00;
+>>>>>>> b4a52101c9c1a4986c20b39031fd81bd03817050
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
   else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.6-float(pressure*0.0212)+float(pressure*pressure*0.000006);
   }
   
   //calculate temperature normally
   else{ 
-    temperature = 23.2-float(pressure*0.0175)-float(0.000000002*pressure*pressure*pressure);
+    temperature = 23.6-float(pressure*0.0212)+float(pressure*pressure*0.000006);
   }
   
   //calculate salinity normally

@@ -1,9 +1,13 @@
 /*************************************************************************/
-/*                            finished_code_9.ino                        */
+/*                            APF_9_ARGOS_sim.ino                        */
 /*                            *******************                        */
 /*                                                                       */
 /* Written by: Sean P. Murphy                                            */
 /*                                                                       */
+/* Version [1.0] supports simulation of APF-9 using an seabird without   */
+/* continuous profiling (ARGOS). Currently will support getting P, PT,   */
+/* or PTS readings; querrying firmware / serial number; configuration;   */
+/* ice avoidance; displaying calibration coefficients.                   */
 /*                                                                       */
 /*************************************************************************/
 
@@ -30,30 +34,6 @@
 /* commandMode: an int that represents whether interrupts are disabled,  */
 /*                  a negative value means interrupts are on (default)   */
 /*                                                                       */
-/* cpMode: an int that represents whether the simulator is in continuous */
-/*                  profiling, a negative value means no (default)       */
-/*                                                                       */
-/* count: an int that represents the number of samples taken while in    */
-/*                  continuous profile mode                              */
-/*                                                                       */
-/* maxPress, minPress: float values that represent that max and min      */
-/*                  pressure calculated during continuous profiling      */
-/*                                                                       */
-/* nBins, samplesLeft: int values that represent the total number of     */
-/*                  bins and the number of samples left after            */
-/*                  subtracting the samples used for one bin             */
-/*                                                                       */
-/* da: an int that represents whether a bin average has been taken, if a */
-/*                  binaverage hasn't been calculated, it's -1 (default) */
-/*                                                                       */
-/* inc: an int used to increment the pressure value for the calculated   */
-/*                  data of continuous profiling, is incremented in the  */
-/*                  binaverage function then reset after dumping the     */
-/*                  data from the profile                                */
-/*                                                                       */
-/* last, first: int values used to indicate whether the given sample is  */
-/*                  the first or last sample of the profile. both are    */
-/*                  -1 by default, and will be set to 1 once per profile */
 /*                                                                       */
 /* msg, msg2, msg3, msg4: Strings to be sent over serial to the APFx     */
 /*                                                                       */
@@ -64,14 +44,6 @@
 /*                  created by converting their corresponding strings to */
 /*                  bytes using a built-in function                      */
 /*                                                                       */
-/* pOrPTS: an array of strings that determine whether the output is just */
-/*                  a p reading or a pts reading, necessary to pass test */
-/*                  during configuration, irrelevent to actual operation */
-/*                                                                       */
-/* pOrPTSsel: an int that represents the array index for the pOrPTS      */
-/*                  array, 1 (default) means PTS, 0 means P. this will   */
-/*                  be changed based on serial messages received from    */
-/*                  APF board                                            */
 /*                                                                       */
 /* iceAvoidance: an int that represents which ice avoidance protocol is  */
 /*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
@@ -83,16 +55,7 @@ int commandMode = -1;
 int cpMode = -1;
 int count = 0;
 
-float maxPress = 0;
-float minPress = 10000;
-int nBins = 0;
-int samplesLeft;
-int da = -1;
-int inc = 0;
-int last = -1;
-int first = -1;
-
-String msg = "SBE 41CP UW. V 2.0\r\nS>";
+String msg = "SBE 41-ALACE\r\nS>";
 int msgLen = msg.length()+1;
 byte msgBuffer[100];
 
@@ -108,13 +71,8 @@ String msg4;
 int msg4Len;
 byte p[100];
 
-String pOrPTS[2] = {"P only", "PTS"};
-
-int pOrPTSsel = 1;
-
 int iceAvoidance = -1;
 
-String stopprofile = "stop";
 
 /*************************************************************************/
 /*                            function prototypes                        */
@@ -127,8 +85,6 @@ String getReadingFromPiston(int);
 String pressureToString(float);
 
 String tempOrSalinityToString(float);
-
-String binaverage();
 
 int debounce(int);
 
@@ -358,70 +314,6 @@ void loop(){
     //enter the while loop to stay in command mode
     while(commandMode == 1){
       
-      /*************************************************************************/
-      /*                      continuous profiling mode                        */
-      /*************************************************************************/
-        
-      //contiuous profiling mode is turned on by the startprofile command over serial
-      while(cpMode == 1){
-        
-        //only take sample once every 1 sec (delay .95 sec)
-        delay(950);
-        
-        //clear out any junk value on pin A0
-        analogRead(A0);
-        
-        //create an array of bytes (a PTS reading) based on the value of the pin A0
-        //then send it over Serial1
-        byte cpStrBuffer[100];
-        String cpStr = getReadingFromPiston(2);
-        int cpStrLen = cpStr.length()+1;
-        cpStr.getBytes(cpStrBuffer, cpStrLen);
-        Serial1.write(cpStrBuffer, cpStrLen);
-<<<<<<< HEAD
-        Serial.println(cpStr);
-=======
-
->>>>>>> 6fad3c306614bb910f910232ed5ec14d7cf17fc7
-        //record that you have taken 1 sample
-        count+=1;
-        
-        //leave continuous profiling mode if the stopprofile command is received
-        if(Serial1.available()>0){
-          String input = "";
-          while(Serial1.available()>0){  
-            char temp;
-            temp = char(Serial1.read());
-            if(temp=='s'){
-              input+=temp;
-            }
-            if(temp=='t'){
-              input+=temp;
-            }
-            if(temp=='o'){
-              input+=temp;
-            }
-            if(temp=='p'){
-              input+=temp;
-            }
-            if(input.equals(stopprofile)){
-              String exitcp = "profile stopped";
-              int exitcpLen = exitcp.length()+1;
-              byte exitcpBuffer[100];
-              exitcp.getBytes(exitcpBuffer, exitcpLen);
-              Serial1.write(exitcpBuffer, exitcpLen);
-              detachInterrupt(0);
-              cpMode = -1;
-            }
-          }
-        }
-      }
-      
-      /*************************************************************************/
-      /*                     end continuous profiling mode                     */
-      /*************************************************************************/
-        
-      
       //check for a message in Serial1, if there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
       //is actually sent, if it is not the carriage return, wait for the next character, two exceptions 
@@ -433,7 +325,7 @@ void loop(){
             char temp;
             temp = char(Serial1.read());
             input+=temp;
-            if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
+            if(temp=='\r'){
               break;
             }
           }
@@ -448,62 +340,85 @@ void loop(){
           Serial1.write(cmdModeBuffer, cmdModeLen);
         }
         
-        //if the input is pcutoff=2.0, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("pcutoff=2.0\r")){
+        //if the input is pumpfastpt=y, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pumpfastpt=y\r")){
           delay(10);
-          String pcutoff = "\r\nS>pcutoff=2.0";
-          int pcutoffLen = pcutoff.length()+1;
-          byte pcutoffBuffer[100];
-          pcutoff.getBytes(pcutoffBuffer, pcutoffLen);
-          Serial1.write(pcutoffBuffer, pcutoffLen);
+          String pfp = "\r\nS>pumpfastpt=y";
+          int pfpLen = pfp.length()+1;
+          byte pfpBuffer[100];
+          pfp.getBytes(pfpBuffer, pfpLen);
+          Serial1.write(pfpBuffer, pfpLen);
         }
         
-        //if the input is outputpts=y, send back the command prompt and echo the input as a series of bytes
-        //and change pOrPTSsel to 1 so that the ds command will display pts
-        else if(input.equals("outputpts=y\r")){
+        //if the input is pumpfastpt=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pumpfastpt=n\r")){
           delay(10);
-          String optsy = "\r\nS>outputpts=y";
-          int optsyLen = optsy.length()+1;
-          byte optsyBuffer[100];
-          optsy.getBytes(optsyBuffer, optsyLen);
-          Serial1.write(optsyBuffer, optsyLen);
-          pOrPTSsel = 1;
+          String pfpn = "\r\nS>pumpfastpt=n";
+          int pfpnLen = pfpn.length()+1;
+          byte pfpnBuffer[100];
+          pfpn.getBytes(pfpnBuffer, pfpnLen);
+          Serial1.write(pfpnBuffer, pfpnLen);
         }
         
-        //if the input is tswait=20, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("tswait=20\r")){
+        //if the input is dsreplyformat=s, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("dsreplyformat=s\r")){
           delay(10);
-          String tsw = "\r\nS>tswait=20";
-          int tswLen = tsw.length()+1;
-          byte tswBuffer[100];
-          tsw.getBytes(tswBuffer, tswLen);
-          Serial1.write(tswBuffer, tswLen);
-          pOrPTSsel = 1;
+          String dsrf = "\r\nS>dsreplyformat=s";
+          int dsrfLen = dsrf.length()+1;
+          byte dsrfBuffer[100];
+          dsrf.getBytes(dsrfBuffer, dsrfLen);
+          Serial1.write(dsrfBuffer, dsrfLen);
+        }
+        
+        //if the input is outputdesnity=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("outputdensity=n\r")){
+          delay(10);
+          String od = "\r\nS>outputdensity=n";
+          int odLen = od.length()+1;
+          byte odBuffer[100];
+          od.getBytes(odBuffer, odLen);
+          Serial1.write(odBuffer, odLen);
+        }
+        
+        //if the input is addtimingdelays=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("addtimingdelays=n\r")){
+          delay(10);
+          String atd = "\r\nS>addtimingdelays=n";
+          int atdLen = atd.length()+1;
+          byte atdBuffer[100];
+          atd.getBytes(atdBuffer, atdLen);
+          Serial1.write(atdBuffer, atdLen);
+        }
+        
+        //if the input is oxnf=2.0, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("oxnf=2.0\r")){
+          delay(10);
+          String oxnf = "\r\nS>oxnf=2.0";
+          int oxnfLen = oxnf.length()+1;
+          byte oxnfBuffer[100];
+          oxnf.getBytes(oxnfBuffer, oxnfLen);
+          Serial1.write(oxnfBuffer, oxnfLen);
+        }
+        
+        //if the input is oxns=0.0, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("oxns=0.0\r")){
+          delay(10);
+          String oxns = "\r\nS>oxns=0.0";
+          int oxnsLen = oxns.length()+1;
+          byte oxnsBuffer[100];
+          oxns.getBytes(oxnsBuffer, oxnsLen);
+          Serial1.write(oxnsBuffer, oxnsLen);
         }
         
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
-        //info based on an actual seabird, can edit field in this string if necessary), there should be 3 
-        //fields that will vary: the number of bins, number of samples, and whether it is expecting only P
-        //or pts for real time output
+        //info based on an actual seabird, can edit field in this string if necessary)
         else if(input.equals("ds\r")){
-          String ds = "\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
-          "\r\nfirmware compilation date: 18 December 2007 09:20"
-          "\r\nstop profile when pressure is less than = 2.0 decibars"
-          "\r\nautomatic bin averaging at end of profile disabled"
-          "\r\nnumber of samples = "+String(count)+
-          "\r\nnumber of bins = "+String(nBins)+
-          "\r\ntop bin interval = 2"
-          "\r\ntop bin size = 2"
-          "\r\ntop bin max = 10"
-          "\r\nmiddle bin interval = 2"
-          "\r\nmiddle bin size = 2"
-          "\r\nmiddle bin max = 20"
-          "\r\nbottom bin interval = 2"
-          "\r\nbottom bin size = 2"
-          "\r\ndo not include two transition bins"
-          "\r\ninclude samples per bin"
-          "\r\npumped take sample wait time = 20 sec"
-          "\r\nreal-time output is "+pOrPTS[pOrPTSsel]+"\r\nS>";
+          String ds = "\r\nSBE 41-STD V 3.0  SERIAL NO. 4242"
+          "\r\npump 0.25 sec before faspt measurement"
+          "\r\nfirmware compilation date: 17 December 2007 16:30"
+          "\r\nadd timing delays = no"
+          "\r\noutput density = no"
+          "\r\nS>";
           int dsLen = ds.length()+1;
           byte dsBuffer[1000];
           ds.getBytes(dsBuffer, dsLen);
@@ -513,7 +428,7 @@ void loop(){
         //if the input is the dc command, send back all of the information as a series of bytes (uses generic
         //info based on an actual seabird (can edit field in this string if necessary)
         else if(input.equals("dc\r")){
-          String dc = "\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
+          String dc = "\r\nSBE 41-STD V 2.0  SERIAL NO. 4242"
           "\r\ntemperature:  19-dec-10    "
           "\r\nTA0 =  4.882851e-05    "
           "\r\nTA1 =  2.747638e-04    "
@@ -548,85 +463,10 @@ void loop(){
           Serial1.write(dcBuffer, dcLen);
         }
         
-        //if the input is startprofile, recognize that it is the start profile command,
-        //then send back that the profile has started, reattach interrupt to pin2, and 
-        //turn on continuous profiling mode
-        else if(input.equals("startprofile")){
-          String cp = "\r\nS>startprofile\r\nprofile started, pump delay = 0 seconds\r\nS>";
-          int cpLen = cp.length()+1;
-          byte cpBuffer[100];
-          cp.getBytes(cpBuffer, cpLen);
-          Serial1.write(cpBuffer, cpLen);
-          attachInterrupt(0, checkLine, RISING);
-          cpMode = 1;
-        }
-        
-        //if the input is stopprofile, recognize that it is the stop profile command,
-        //then send back that the profile has stopped, ignore the external interrupt
-        //on pin2, and turn off continuous profiling mode
-        else if(input.equals("stopprofile")){
-          String exitcp = "profile stopped";
-          int exitcpLen = exitcp.length()+1;
-          byte exitcpBuffer[100];
-          exitcp.getBytes(exitcpBuffer, exitcpLen);
-          Serial1.write(exitcpBuffer, exitcpLen);
-          detachInterrupt(0);
-          cpMode = -1;
-        }
-        
-        //if the input is binaverage, return the values parsed from the data sent
-        //during continuous profiling mode. set da to 1 which will allow for the
-        //da command to be run (makes sure there is actual data to dump when requested)
-        else if(input.equals("binaverage\r")){
-          nBins = (int(maxPress)/2) + 1;
-          String binavg = "\r\nS>binaverage\r\nsamples = "+String(count)+", maxPress = "+pressureToString(maxPress)+"\r\nrd: 0\r\navg: 0\r\n\ndone, nbins = "+String(nBins)+"\r\nS>";
-          int binavgLen = binavg.length()+1;
-          byte binavgBuffer[100];
-          binavg.getBytes(binavgBuffer, binavgLen);
-          Serial1.write(binavgBuffer, binavgLen);
-          da = 1;
-        }
-
-        //if the inpt is da, send bins in the format "p, t, s, b" (pressure,
-        //temperature, salinity, number of samples) over Serial1. then send that 
-        //the upload is done. then reinitialize all of the global variables used 
-        //for bin averaging and dumping the values        
-        else if((input.equals("da\r"))&&(da==1)){
-          first = 1;
-          int ii;
-          
-          //send all of the samples over serial
-          for(ii=0; ii < nBins; ii++){
-            if(ii == nBins - 1){
-              last = 1;
-            }
-            String bin = binaverage();
-            int binLen = bin.length()+1;
-            byte binBuffer[100];
-            bin.getBytes(binBuffer, binLen);
-            Serial1.write(binBuffer, binLen);
-          }
-          
-          //send upload complete at end of all samples
-          String complete = "\r\nupload complete\r\nS>";
-          int completeLen = complete.length()+1;
-          byte completeBuffer[100];
-          complete.getBytes(completeBuffer, completeLen);
-          Serial1.write(completeBuffer, completeLen);
-          
-          //reinitalize values
-          maxPress = 0;
-          minPress = 10000;
-          nBins = 0;
-          da = -1;
-          inc = 0;
-          count = 0;
-        }
-        
-        //if the input is qsr, send back that the seabird is powering down as a series of bytes 
+        //if the input is qs, send back that the seabird is powering down as a series of bytes 
         //(the simulator will just stay on and wait for the next interaction with the APFx)
-        else if(input.equals("qsr\r")){
-          String cmdMode = "\r\nS>qsr\r\npowering down\r\nS>";
+        else if(input.equals("qs\r")){
+          String cmdMode = "\r\nS>qs\r\nS>";
           int cmdModeLen = cmdMode.length()+1;
           byte cmdModeBuffer[100];
           cmdMode.getBytes(cmdModeBuffer, cmdModeLen);
@@ -634,128 +474,6 @@ void loop(){
           commandMode = -1;
           delay(100);
           attachInterrupt(0, checkLine, RISING);
-        }
-        
-        //if the input is autobinavg=n, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("autobinavg=n\r")){
-          delay(10);
-          String aba = "\r\nS>autobinavg=n";
-          int abaLen = aba.length()+1;
-          byte abaBuffer[100];
-          aba.getBytes(abaBuffer, abaLen);
-          Serial1.write(abaBuffer, abaLen);
-        }
-        
-        //if the input is top_bin_interval=2, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("top_bin_interval=2\r")){
-          delay(10);
-          String tbi = "\r\nS>top_bin_interval=2";
-          int tbiLen = tbi.length()+1;
-          byte tbiBuffer[100];
-          tbi.getBytes(tbiBuffer, tbiLen);
-          Serial1.write(tbiBuffer, tbiLen);
-        }
-        
-        //if the input is top_bin_size=2, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("top_bin_size=2\r")){
-          delay(10);
-          String tbs = "\r\nS>top_bin_size=2";
-          int tbsLen = tbs.length()+1;
-          byte tbsBuffer[100];
-          tbs.getBytes(tbsBuffer, tbsLen);
-          Serial1.write(tbsBuffer, tbsLen);
-        }
-        
-        //if the input is top_bin_max=10, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("top_bin_max=10\r")){
-          delay(10);
-          String tbm = "\r\nS>top_bin_max=10";
-          int tbmLen = tbm.length()+1;
-          byte tbmBuffer[100];
-          tbm.getBytes(tbmBuffer, tbmLen);
-          Serial1.write(tbmBuffer, tbmLen);
-        }
-        
-        //if the input is middle_bin_interval=2, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("middle_bin_interval=2\r")){
-          delay(10);
-          String mbi = "\r\nS>middle_bin_interval=2";
-          int mbiLen = mbi.length()+1;
-          byte mbiBuffer[100];
-          mbi.getBytes(mbiBuffer, mbiLen);
-          Serial1.write(mbiBuffer, mbiLen);
-        }
-        
-        //if the input is middle_bin_size=2, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("middle_bin_size=2\r")){
-          delay(10);
-          String mbs = "\r\nS>middle_bin_size=2";
-          int mbsLen = mbs.length()+1;
-          byte mbsBuffer[100];
-          mbs.getBytes(mbsBuffer, mbsLen);
-          Serial1.write(mbsBuffer, mbsLen);
-        }
-        
-        //if the input is middle_bin_max=20, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("middle_bin_max=20\r")){
-          delay(10);
-          String mbm = "\r\nS>middle_bin_max=20";
-          int mbmLen = mbm.length()+1;
-          byte mbmBuffer[100];
-          mbm.getBytes(mbmBuffer, mbmLen);
-          Serial1.write(mbmBuffer, mbmLen);
-        }
-        
-        //if the input is bottom_bin_interval=2, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("bottom_bin_interval=2\r")){
-          delay(10);
-          String bbi = "\r\nS>bottom_bin_interval=2";
-          int bbiLen = bbi.length()+1;
-          byte bbiBuffer[100];
-          bbi.getBytes(bbiBuffer, bbiLen);
-          Serial1.write(bbiBuffer, bbiLen);
-        }
-        
-        //if the input is bottom_bin_size=2, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("bottom_bin_size=2\r")){
-          delay(10);
-          String bbs = "\r\nS>bottom_bin_size=2";
-          int bbsLen = bbs.length()+1;
-          byte bbsBuffer[100];
-          bbs.getBytes(bbsBuffer, bbsLen);
-          Serial1.write(bbsBuffer, bbsLen);
-        }
-        
-        //if the input is includetransitionbin=n, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("includetransitionbin=n\r")){
-          delay(10);
-          String itb = "\r\nS>includetransitionbin=n";
-          int itbLen = itb.length()+1;
-          byte itbBuffer[100];
-          itb.getBytes(itbBuffer, itbLen);
-          Serial1.write(itbBuffer, itbLen);
-        }
-        
-        //if the input is includenbin=y, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("includenbin=y\r")){
-          delay(10);
-          String ib = "\r\nS>includenbin=y";
-          int ibLen = ib.length()+1;
-          byte ibBuffer[100];
-          ib.getBytes(ibBuffer, ibLen);
-          Serial1.write(ibBuffer, ibLen);
-        }
-        
-        //if the input is outputpts=n, send back the command prompt and echo the input as a series of bytes
-        //and set pOrPTSsel to 0 so that the ds command will display p only
-        else if(input.equals("outputpts=n\r")){
-          delay(10);
-          String optsn = "\r\nS>outputpts=n";
-          int optsnLen = optsn.length()+1;
-          byte optsnBuffer[100];
-          optsn.getBytes(optsnBuffer, optsnLen);
-          Serial1.write(optsnBuffer, optsnLen);
-          pOrPTSsel = 0;
         }
         
         //if the input is id, send back that the seabird is in ice detect mode as a series of bytes 
@@ -822,16 +540,6 @@ void loop(){
           byte icebModeOffBuffer[100];
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
-        }
-        
-        //if the input is build send back that the simulator is setup for APF-9 simulation
-        //by returning APF-9 as a series of bytes of serial
-        else if(input.equals("build\r")){
-          String build = "\r\nAPF-9\r\nS>";
-          int buildLen = build.length()+1;
-          byte buildBuffer[100];
-          build.getBytes(buildBuffer, buildLen);
-          Serial1.write(buildBuffer, buildLen);
         }
         
         else{
@@ -913,14 +621,6 @@ String getReadingFromPiston(int select){
   //adjust for hardware that amplifies the signal by approximately 1.1, then convert the float 
   //to a string using the pressureToString function
   pressure = pressure * 1.08;
-  if(cpMode == 1){
-    if(pressure >= maxPress){
-      maxPress = pressure;
-    }
-    if(pressure <= minPress){
-      minPress = pressure;
-    }
-  }
   
   pStr = pressureToString(pressure);
   
@@ -985,121 +685,6 @@ String getReadingFromPiston(int select){
   return sendMessage;
 }
 
-
-/*************************************************************************/
-/*                              binaverage                               */
-/*                              **********                               */
-/*                                                                       */
-/* parameters: none                                                      */
-/* returns: String representing the bin in the format of avg P, avg T,   */
-/*              avg S, then the number of bins                           */
-/*                                                                       */
-/* This function will create a string that represents the data requested */
-/* by the binaverage command of the APFx. The function creates a         */
-/* pressure value that is approximately 2 greater than the last, then    */
-/* calculates the temperature and salinity according to the same         */
-/* algorithm as getReadingFromPiston. It also calculates a random number */
-/* of samples per bin between 0 and 35. It handles the cases of the      */
-/* first and last bin differently. The first bin is used to initialize   */
-/* total number of bins available. The last bin is used to ensure that   */
-/* the sum of the random bins equals the total number of bins. If the    */
-/* pressure calculated in the function is less than the minimum pressure */
-/* calculated or if the number of samples in a bin is 0, then all of the */
-/* other fields are equal to 0. It then returns a string value that      */
-/* matches the expected output ("pppp.pp, tt.tttt, ss.ssss, bb"). This   */
-/* function is meant to be called repeatedly when sending data to the    */
-/* APFx after receiving the 'da' command.                                */
-/*                                                                       */
-/*************************************************************************/
-
-String binaverage(){
-  
-  //string containing the p,t,s,b values
-  String returnStr;
-  
-  //float values
-  float pressure = 0;
-  float temperature;
-  float salinity;
-  
-  //int value
-  int samplesUsed = 0;
-  
-  //create a pressure value that increases by approximately 2
-  pressure += (inc*2);
-  pressure += float((float(random(100,500))/float(1500)));
-  pressure -= float(float((random(200,600))/float(1600)));
-  
-  //determine if in ice detect, ice cap, ice breakup, or normal mode
-  //then calculate temperature based on criteria
-  
-  //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
-  if((iceAvoidance == 1)&&(pressure < 55)){
-    temperature = -2.00;
-  }
-  
-  //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
-  else if((iceAvoidance == 2)&&(pressure < 20)){
-    temperature = -2.00;
-  }
-  
-  //ice breakup mode, need a temp of > -1.78 C the whole way up
-  else if((iceAvoidance == 3)&&(pressure <55)){
-    temperature = 23.2-float(pressure*0.0088);
-  }
-  
-  //calculate temperature normally
-  else{ 
-    temperature = 23.2-float(pressure*0.0088);
-  }
-  
-  //calculate salinity normally
-  salinity = temperature*0.1 + 34.9;
-  
-  //if the loop is in its first iteration, the total number of samples
-  //is the number of samples originally taken (count)
-  if(first == 1){
-    samplesLeft = count;
-    first = -1;
-  }
-  
-  //calculate a random value for the number of samples per bin
-  samplesUsed = ((samplesLeft%5) + random(10,30));
-  
-  //ensure that there are not too many samples used
-  if(samplesLeft-samplesUsed <= 0){
-    samplesUsed = 0;
-  }
-  
-  //use the remaining number of samples for the last bin
-  if(last==1){
-    samplesUsed = samplesLeft;
-    last = -1;
-  }
-  
-  //if the incremented value of pressure is lower than the lowest measured value
-  // then set all of the values equal to zero. or if there are no samples, set all
-  // of the values for that bin equal to zero
-  if((pressure <= minPress)||(samplesUsed==0)){
-    pressure = 0;
-    temperature = 0;
-    salinity = 0;
-    samplesUsed = 0;
-  }
-  
-  //increment the pressure by 2 (1 pressure increment = inc *2)
-  inc += 1;
-  
-  //decrease the number of samples remaining
-  samplesLeft -= samplesUsed;
-
-  //create the string to be returned in the format:
-  //"pppp.pp, tt.tttt, ss.ssss, bb"
-  returnStr = pressureToString(pressure)+", "+tempOrSalinityToString(temperature)+", "+tempOrSalinityToString(salinity)+", "+String(samplesUsed)+"\r\n";
-  
-  //return the string
-  return returnStr;
-}
 
 /*************************************************************************/
 /*                           pressureToString                            */
@@ -1271,7 +856,4 @@ void runTimer(int timeOut){
     }
   }
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> 6fad3c306614bb910f910232ed5ec14d7cf17fc7

@@ -882,7 +882,7 @@ String getReadingFromPiston(int select){
   
   //technically out of range, but use it to go to a pressure greater than 2000dbar, min change = 5dbar
   if(voltage<72){
-    pressure = 2000+1*(voltage-72);
+    pressure = 2000;
   }
   
   //for pressures between 2000-1000dbar, 72 = 2000dbar, 293 = 1000dbar, min change = 4.5045dbar
@@ -896,13 +896,15 @@ String getReadingFromPiston(int select){
   }
   
   //for pressures between 500-0dbar, 454 = 500dbar, 1023 = 0dbar, min change = 0.878dbar
-  else if((voltage>=454)&&(voltage<1024)){
-    pressure = ((0.878)*(569-(voltage-454)));
+  else if((voltage>=454)&&(voltage<964)){
+    pressure = ((0.878)*(519-(voltage-454)));
+  }
+  else if(voltage>=964){
+    pressure = 0;
   }
   
   //adjust for hardware that amplifies the signal by approximately 1.1, then convert the float 
   //to a string using the pressureToString function
-  pressure = pressure * 1.08;
   if(cpMode == 1){
     if(pressure >= maxPress){
       maxPress = pressure;
