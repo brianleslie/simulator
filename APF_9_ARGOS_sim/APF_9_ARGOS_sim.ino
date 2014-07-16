@@ -44,6 +44,11 @@
 /*                  created by converting their corresponding strings to */
 /*                  bytes using a built-in function                      */
 /*                                                                       */
+/* pumpFast, addDelays, outputDensity: arrays of Strings that represent  */
+/*                  the changeable fields shown during a ds command      */
+/*                                                                       */
+/* pumpFastSel, addDelaysSel, outputDensitySel: int values that are the  */
+/*                  array indeces for their respective arrays            */
 /*                                                                       */
 /* iceAvoidance: an int that represents which ice avoidance protocol is  */
 /*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
@@ -70,6 +75,15 @@ byte pt[100];
 String msg4;
 int msg4Len;
 byte p[100];
+
+String pumpFast[2] = {"do not pump", "pump 0.25 sec"};
+int pumpFastSel = 0;
+
+String addDelays[2] = {"no", "yes"};
+int addDelaysSel = 0;
+
+String outputDensity[2] = {"no", "yes"};
+int outputDensitySel = 0;
 
 int iceAvoidance = -1;
 
@@ -341,6 +355,7 @@ void loop(){
         }
         
         //if the input is pumpfastpt=y, send back the command prompt and echo the input as a series of bytes
+        //and set the array index of pumpFast to 1 for the ds command
         else if(input.equals("pumpfastpt=y\r")){
           delay(10);
           String pfp = "\r\nS>pumpfastpt=y";
@@ -348,9 +363,11 @@ void loop(){
           byte pfpBuffer[100];
           pfp.getBytes(pfpBuffer, pfpLen);
           Serial1.write(pfpBuffer, pfpLen);
+          pumpFastSel = 1;
         }
         
         //if the input is pumpfastpt=n, send back the command prompt and echo the input as a series of bytes
+        //and set the array index of pumpFast to 0 for the ds command
         else if(input.equals("pumpfastpt=n\r")){
           delay(10);
           String pfpn = "\r\nS>pumpfastpt=n";
@@ -358,6 +375,7 @@ void loop(){
           byte pfpnBuffer[100];
           pfpn.getBytes(pfpnBuffer, pfpnLen);
           Serial1.write(pfpnBuffer, pfpnLen);
+          pumpFastSel = 0;
         }
         
         //if the input is dsreplyformat=s, send back the command prompt and echo the input as a series of bytes
@@ -370,24 +388,52 @@ void loop(){
           Serial1.write(dsrfBuffer, dsrfLen);
         }
         
-        //if the input is outputdesnity=n, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("outputdensity=n\r")){
+        //if the input is outputdesnity=y, send back the command prompt and echo the input as a series of bytes
+        //and set the array index of outputDensity to 1 for the ds command
+        else if(input.equals("outputdensity=y\r")){
           delay(10);
-          String od = "\r\nS>outputdensity=n";
+          String od = "\r\nS>outputdensity=y";
           int odLen = od.length()+1;
           byte odBuffer[100];
           od.getBytes(odBuffer, odLen);
           Serial1.write(odBuffer, odLen);
+          outputDensitySel = 1;
         }
         
-        //if the input is addtimingdelays=n, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("addtimingdelays=n\r")){
+        //if the input is outputdesnity=n, send back the command prompt and echo the input as a series of bytes
+        //and set the array index of outputDensity to 0 for the ds command
+        else if(input.equals("outputdensity=n\r")){
           delay(10);
-          String atd = "\r\nS>addtimingdelays=n";
+          String odn = "\r\nS>outputdensity=n";
+          int odnLen = odn.length()+1;
+          byte odnBuffer[100];
+          odn.getBytes(odnBuffer, odnLen);
+          Serial1.write(odnBuffer, odnLen);
+          outputDensitySel = 0;
+        }
+        
+        //if the input is addtimingdelays=y, send back the command prompt and echo the input as a series of bytes
+        //and set the array index of addDelays to 1 for the ds command
+        else if(input.equals("addtimingdelays=y\r")){
+          delay(10);
+          String atd = "\r\nS>addtimingdelays=y";
           int atdLen = atd.length()+1;
           byte atdBuffer[100];
           atd.getBytes(atdBuffer, atdLen);
           Serial1.write(atdBuffer, atdLen);
+          addDelaysSel = 1;
+        }
+        
+        //if the input is addtimingdelays=n, send back the command prompt and echo the input as a series of bytes
+        //and set the array index of addDelays to 0 for the ds command
+        else if(input.equals("addtimingdelays=n\r")){
+          delay(10);
+          String atdn = "\r\nS>addtimingdelays=n";
+          int atdnLen = atdn.length()+1;
+          byte atdnBuffer[100];
+          atdn.getBytes(atdnBuffer, atdnLen);
+          Serial1.write(atdnBuffer, atdnLen);
+          addDelaysSel = 0;
         }
         
         //if the input is oxnf=2.0, send back the command prompt and echo the input as a series of bytes
@@ -413,11 +459,11 @@ void loop(){
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
         //info based on an actual seabird, can edit field in this string if necessary)
         else if(input.equals("ds\r")){
-          String ds = "\r\nSBE 41-STD V 3.0  SERIAL NO. 4242"
-          "\r\npump 0.25 sec before faspt measurement"
+          String ds = "\r\nSBE 41-STD V 3.0  SERIAL NO. 4242" +
+          pumpFast[pumpFastSel] + "before faspt measurement"
           "\r\nfirmware compilation date: 17 December 2007 16:30"
-          "\r\nadd timing delays = no"
-          "\r\noutput density = no"
+          "\r\nadd timing delays = " + addDelays[addDelaysSel] +
+          "\r\noutput density = " + outputDensity[outputDensitySel] +
           "\r\nS>";
           int dsLen = ds.length()+1;
           byte dsBuffer[1000];
@@ -856,4 +902,3 @@ void runTimer(int timeOut){
     }
   }
 }
-
