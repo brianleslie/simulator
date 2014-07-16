@@ -459,7 +459,7 @@ void loop(){
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
         //info based on an actual seabird, can edit field in this string if necessary)
         else if(input.equals("ds\r")){
-          String ds = "\r\nSBE 41-STD V 3.0  SERIAL NO. 4242" +
+          String ds = "\r\nSBE 41-STD V 3.0  SERIAL NO. 4242\r\n" +
           pumpFast[pumpFastSel] + "before faspt measurement"
           "\r\nfirmware compilation date: 17 December 2007 16:30"
           "\r\nadd timing delays = " + addDelays[addDelaysSel] +
