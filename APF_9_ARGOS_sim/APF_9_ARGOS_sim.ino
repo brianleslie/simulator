@@ -378,6 +378,16 @@ void loop(){
           pumpFastSel = 0;
         }
         
+        //if the input is pumpfastpt=n, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pumpfastpt=n\r")){
+          delay(10);
+          String pfpn = "\r\nS>pumpfastpt=n";
+          int pfpnLen = pfpn.length()+1;
+          byte pfpnBuffer[100];
+          pfpn.getBytes(pfpnBuffer, pfpnLen);
+          Serial1.write(pfpnBuffer, pfpnLen);
+        }
+        
         //if the input is dsreplyformat=s, send back the command prompt and echo the input as a series of bytes
         else if(input.equals("dsreplyformat=s\r")){
           delay(10);
@@ -902,4 +912,3 @@ void runTimer(int timeOut){
     }
   }
 }
-
