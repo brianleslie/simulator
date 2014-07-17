@@ -70,7 +70,7 @@
 /*                                                                       */
 /* pOrPTS: an array of strings that determine whether the output is just */
 /*                  a p reading or a pts reading, necessary to pass test */
-/*                  during configuration, irrelevent to actual operation */
+/*                  during configuration                                 */
 /*                                                                       */
 /* pOrPTSsel: an int that represents the array index for the pOrPTS      */
 /*                  array, 1 (default) means PTS, 0 means P. this will   */
@@ -79,6 +79,26 @@
 /*                                                                       */
 /* iceAvoidance: an int that represents which ice avoidance protocol is  */
 /*                  in effect, -1:none, 1:detect, 2:cap, 3:breakup       */
+/*                                                                       */
+/* missionMode: an int that represents whether the simulator should be   */
+/*                  simulating a mission, 0:no, 1:mission set, but not   */
+/*                  started, 108>=: mission in progress(incremnted by 1  */
+/*                  each time a parameter is set, by 100 when mission    */
+/*                  is started                                           */
+/*                                                                       */
+/* phase: an int that represents which phase of the mission the is being */
+/*                  simulated, 0:descent, 1:park, 2:deep descent,        */
+/*                  3:ascent                                             */
+/* parkPressure, deepProfilePressure: ints that represent the pressures  */
+/*                  expected at different states of the mission          */
+/*                                                                       */
+/* parkDescentTime, downTime, deepProfileDescentTime, ascentTimeOutOut:  */
+/*                  ints that represent the time in seconds it take for  */
+/*                  the float to reach different states of the mission   */
+/*                                                                       */
+/* currentTime: an int representing the current time in the mission, can */
+/*                  be set manually in sys chat or will be incremented   */
+/*                  by timer automatically every ~5 seconds              */
 /*                                                                       */
 /*************************************************************************/
 
@@ -120,6 +140,16 @@ int iceAvoidance = -1;
 
 String stopprofile = "stop";
 
+int missionMode = 0;
+
+int phase = 0;
+
+int parkPressure = 1000, deepProfilePressure = 2000;
+
+long offset = 0;
+
+long currentTime = 0, parkDescentTime = 18000000, downTime = 86400000, deepProfileDescentTime = 18000000, ascentTimeOut = 36000000;
+
 /*************************************************************************/
 /*                            function prototypes                        */
 /*                            *******************                        */
@@ -127,6 +157,8 @@ String stopprofile = "stop";
 /*************************************************************************/
 
 String getReadingFromPiston(int);
+
+String getDynamicReading(int, int);
 
 String pressureToString(float);
 
@@ -140,6 +172,8 @@ void checkLine();
 
 void runTimer(int);
 
+void updateTime();
+
 void setup();
 
 void loop();
@@ -150,7 +184,9 @@ void loop();
 /*                              *********                                */
 /*                                                                       */
 /* Attached to a rising logic level on pin 2                             */
+/*                                                                       */
 /* paramaters: none                                                      */
+/*                                                                       */
 /* returns: none                                                         */
 /*                                                                       */
 /* After the initial change, wait 200ms, then check the request line. If */
@@ -232,6 +268,7 @@ void checkLine(){
 /*                                 *****                                 */
 /*                                                                       */
 /* parameters: none                                                      */
+/*                                                                       */
 /* returns: none                                                         */
 /*                                                                       */
 /* Part of programming in Arduino, used to set up the board for the      */
@@ -266,6 +303,7 @@ void setup(){
   
   //initializes the timer with a period of 1 sec
   Timer1.initialize(1000000);
+  millis();
 }
 
 /*************************************************************************/
@@ -273,6 +311,7 @@ void setup(){
 /*                                 ****                                  */
 /*                                                                       */
 /* parameters: none                                                      */
+/*                                                                       */
 /* returns: none                                                         */
 /*                                                                       */
 /* Part of programming in Arduino, used as the main loop. It performs a  */
@@ -314,7 +353,12 @@ void loop(){
     //byte array pts, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
     case 2:
       analogRead(A0);
-      msg2 = getReadingFromPiston(2);
+      if(missionMode < 107){
+        msg2 = getReadingFromPiston(2);
+      }
+      else if(missionMode >= 107){
+        msg2 = getDynamicReading(2, phase);
+      }
       msg2Len = msg2.length()+1;
       msg2.getBytes(pts, msg2Len);
       Serial1.write(pts, msg2Len);
@@ -326,7 +370,12 @@ void loop(){
     //byte array pt, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
     case 3:
       analogRead(A0);
-      msg3 = getReadingFromPiston(3);
+     if(missionMode < 107){
+        msg3 = getReadingFromPiston(3);
+      }
+      else if(missionMode >= 107){
+        msg3 = getDynamicReading(3, phase);
+      }
       msg3Len = msg3.length()+1;
       msg3.getBytes(pt, msg3Len);
       Serial1.write(pt, msg3Len);
@@ -338,7 +387,12 @@ void loop(){
     //byte array p, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
     case 4:
       analogRead(A0);
-      msg4 = getReadingFromPiston(4);
+      if(missionMode < 107){
+        msg4 = getReadingFromPiston(4);
+      }
+      else if(missionMode >= 107){
+        msg4 = getDynamicReading(4, phase);
+      }
       msg4Len = msg4.length()+1;
       msg4.getBytes(p, msg4Len);
       Serial1.write(p, msg4Len);
@@ -368,7 +422,6 @@ void loop(){
         
       //contiuous profiling mode is turned on by the startprofile command over serial
       while(cpMode == 1){
-        
         //only take sample once every 1 sec (delay .95 sec)
         delay(950);
         
@@ -378,7 +431,23 @@ void loop(){
         //create an array of bytes (a PTS reading) based on the value of the pin A0
         //then send it over Serial1
         byte cpStrBuffer[100];
-        String cpStr = getReadingFromPiston(2);
+        String cpStr;
+        if(missionMode < 107){
+          if(pOrPTSsel == 1){
+            cpStr = getReadingFromPiston(2);
+          }
+          else if(pOrPTSsel == 0){
+            cpStr = getReadingFromPiston(4);
+          }
+        }
+        else if(missionMode >= 107){
+          if(pOrPTSsel == 1){
+            cpStr = getDynamicReading(2, phase);
+          }
+          else if(pOrPTSsel == 0){
+            cpStr =getDynamicReading(4, phase);
+          }
+        }
         int cpStrLen = cpStr.length()+1;
         cpStr.getBytes(cpStrBuffer, cpStrLen);
         Serial1.write(cpStrBuffer, cpStrLen);
@@ -433,7 +502,10 @@ void loop(){
             char temp;
             temp = char(Serial1.read());
             input+=temp;
-            if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))){
+            if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))||(input.equals("parkDescentTime="))
+                           ||(input.equals("parkPressure="))||(input.equals("downTime="))||(input.equals("deepProfileDescentTime="))
+                           ||(input.equals("deepProfilePressure="))||(input.equals("ascentTimeOutOut="))
+                           ||(input.equals("currentTime="))){
               break;
             }
           }
@@ -448,37 +520,298 @@ void loop(){
           Serial1.write(cmdModeBuffer, cmdModeLen);
         }
         
-        //if the input is pcutoff=2.0, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("pcutoff=2.0\r")){
-          delay(10);
-          String pcutoff = "\r\nS>pcutoff=2.0";
-          int pcutoffLen = pcutoff.length()+1;
-          byte pcutoffBuffer[100];
-          pcutoff.getBytes(pcutoffBuffer, pcutoffLen);
-          Serial1.write(pcutoffBuffer, pcutoffLen);
+         else if(input.equals("mission\r")){
+          digitalWrite(8, LOW);
+          String m_config = "mission\r\nPlease enter values for the following parameters based on your misssion...\r\n"
+          "\r\n"
+          "\r\nPark Pressure (dbar):                                                parkPressureure=int"
+          "\r\nPark Descent Time (minutes):                                         parkDescentTime=int"
+          "\r\nDown Time(minutes):                                                  downTime=int"
+          "\r\nDeep Profile Pressure:                                               deepProfilePressure=int"
+          "\r\nDeep Profile Descent Time(minutes):                                  deepProfileDescentTime=int"
+          "\r\nAscent Time Out(minutes):                                            ascentTimeOutOut=int"
+          "\r\nCurrent Time(seconds) (optional- use to change simulation time):     currentTime=int"
+          "\r\nS>";
+          int m_configLen = m_config.length()+1;
+          byte m_configBuffer[1000];
+          m_config.getBytes(m_configBuffer, m_configLen);
+          Serial1.write(m_configBuffer, m_configLen);
+          missionMode = 1;
         }
         
-        //if the input is outputpts=y, send back the command prompt and echo the input as a series of bytes
-        //and change pOrPTSsel to 1 so that the ds command will display pts
-        else if(input.equals("outputpts=y\r")){
-          delay(10);
-          String optsy = "\r\nS>outputpts=y";
-          int optsyLen = optsy.length()+1;
-          byte optsyBuffer[100];
-          optsy.getBytes(optsyBuffer, optsyLen);
-          Serial1.write(optsyBuffer, optsyLen);
-          pOrPTSsel = 1;
+        else if(input.equals("list parameters\r")){
+          String list = "list parameters\r\nPark Pressure: " + String(parkPressure) +  
+          "\r\nPark Descent Time: " + String((parkDescentTime/60000)) +
+          "\r\nDown Time: " + String((downTime/60000)) +
+          "\r\nDeep Profile Pressure: " + String(deepProfilePressure) +
+          "\r\nDeep Profile Descent Time: " + String((deepProfileDescentTime/60000)) +
+          "\r\nAscent Time Out: " + String((ascentTimeOut/60000)) + 
+          "\r\nCurrent Time: " + String((currentTime/1000)) + "\r\nS>";
+          int listLen = list.length()+1;
+          byte listBuffer[1000];
+          list.getBytes(listBuffer, listLen);
+          Serial1.write(listBuffer, listLen);
+          missionMode += 6;
         }
         
-        //if the input is tswait=20, send back the command prompt and echo the input as a series of bytes
-        else if(input.equals("tswait=20\r")){
-          delay(10);
-          String tsw = "\r\nS>tswait=20";
-          int tswLen = tsw.length()+1;
-          byte tswBuffer[100];
-          tsw.getBytes(tswBuffer, tswLen);
-          Serial1.write(tswBuffer, tswLen);
-          pOrPTSsel = 1;
+        else if(input.equals("start descent\r")){
+          String start = "descent started\r\nS>";
+          int startLen = start.length()+1;
+          byte startBuffer[100];
+          start.getBytes(startBuffer, startLen);
+          Serial1.write(startBuffer, startLen);
+          offset = millis();
+          Serial.println(String(offset));
+          currentTime = offset;
+          Serial.println(String((currentTime-offset)));
+          parkDescentTime+=offset;
+          Serial.println(String((parkDescentTime-offset)));
+          downTime+=offset;
+          Serial.println(String((downTime-offset)));
+          deepProfileDescentTime+=offset;
+          Serial.println(String((deepProfileDescentTime-offset)));
+          ascentTimeOut+=offset;
+          Serial.println(String((ascentTimeOut-offset)));
+          missionMode+=100;
+          Serial.println(String(missionMode));
+        }
+        
+        else if(input.equals("end mission\r")){
+          String m_end = "mission ended\r\nS>";
+          int m_endLen = m_end.length()+1;
+          byte m_endBuffer[100];
+          m_end.getBytes(m_endBuffer, m_endLen);
+          Serial1.write(m_endBuffer, m_endLen);
+          missionMode = 0;
+          parkDescentTime = 18000000;
+          parkPressure = 1000;
+          downTime = 86400000;
+          deepProfileDescentTime = 18000000;
+          deepProfilePressure = 2000;
+          ascentTimeOut = 36000000;
+          currentTime = 0;
+          offset = 0;
+          /*****************************code to reset timer***************************/
+          
+          
+        }
+        
+        else if(input.equals("pause mission\r")){
+          String m_paused = "mission paused\r\nS>";
+          int m_pausedLen = m_paused.length()+1;
+          byte m_pausedBuffer[100];
+          m_paused.getBytes(m_pausedBuffer, m_pausedLen);
+          Serial1.write(m_pausedBuffer, m_pausedLen);
+          /******************************code to stop timer***************************/
+          
+          /*******************************code to turn missionMode off****************/
+        }
+        
+        else if(input.equals("resume mission\r")){
+          String m_resume = "resuming mission\r\nS>";
+          int m_resumeLen = m_resume.length()+1;
+          byte m_resumeBuffer[100];
+          m_resume.getBytes(m_resumeBuffer, m_resumeLen);
+          Serial1.write(m_resumeBuffer, m_resumeLen);
+          /******************************code to start timer back up******************/
+          
+          /*******************************code to turn missionMode back on************/
+        }
+        
+        else if(input.equals("parkDescentTime=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              parkDescentTime=((input.toInt())*60000)+offset;
+              break;
+            }
+          }
+          String parkDescentTimeStr = "\r\nS>parkDescentTime="+String(((parkDescentTime-offset)/60000))+"\r\nS>";
+          int parkDescentTimeStrLen = parkDescentTimeStr.length()+1;
+          byte parkDescentTimeStrBuffer[150];
+          parkDescentTimeStr.getBytes(parkDescentTimeStrBuffer, parkDescentTimeStrLen);
+          Serial1.write(parkDescentTimeStrBuffer, parkDescentTimeStrLen);
+          missionMode++;
+        }
+        
+        else if(input.equals("parkPressure=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              parkPressure=input.toInt();
+              break;
+            }
+          }
+          String parkPressureStr = "\r\nS>parkPressure="+String(parkPressure)+"\r\nS>";
+          int parkPressureStrLen = parkPressureStr.length()+1;
+          byte parkPressureStrBuffer[150];
+          parkPressureStr.getBytes(parkPressureStrBuffer, parkPressureStrLen);
+          Serial1.write(parkPressureStrBuffer, parkPressureStrLen);
+          missionMode++;
+        }
+        
+        else if(input.equals("downTime=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              downTime=((input.toInt())*60000)+offset;
+              break;
+            }
+          }
+          String downTimeStr = "\r\nS>downTime="+String(((downTime-offset)/60000))+"\r\nS>";
+          int downTimeStrLen = downTimeStr.length()+1;
+          byte downTimeStrBuffer[150];
+          downTimeStr.getBytes(downTimeStrBuffer, downTimeStrLen);
+          Serial1.write(downTimeStrBuffer, downTimeStrLen);
+          missionMode++;
+        }
+
+        else if(input.equals("deepProfileDescentTime=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              deepProfileDescentTime=((input.toInt())*60000)+offset;
+              break;
+            }
+          }
+          String deepProfileDescentTimeStr = "\r\nS>deepProfileDescentTime="+String(((deepProfileDescentTime-offset)/6000))+"\r\nS>";
+          int deepProfileDescentTimeStrLen = deepProfileDescentTimeStr.length()+1;
+          byte deepProfileDescentTimeStrBuffer[150];
+          deepProfileDescentTimeStr.getBytes(deepProfileDescentTimeStrBuffer, deepProfileDescentTimeStrLen);
+          Serial1.write(deepProfileDescentTimeStrBuffer, deepProfileDescentTimeStrLen);
+          missionMode++;
+        }
+        
+        else if(input.equals("deepProfilePressure=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              deepProfilePressure=input.toInt();
+              break;
+            }
+          }
+          String deepProfilePressureStr = "\r\nS>deepProfilePressure="+String(deepProfilePressure)+"\r\nS>";
+          int deepProfilePressureStrLen = deepProfilePressureStr.length()+1;
+          byte deepProfilePressureStrBuffer[150];
+          deepProfilePressureStr.getBytes(deepProfilePressureStrBuffer, deepProfilePressureStrLen);
+          Serial1.write(deepProfilePressureStrBuffer, deepProfilePressureStrLen);
+          missionMode++;
+        }
+        
+        else if(input.equals("ascentTimeOut=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              ascentTimeOut=((input.toInt())*60000)+offset;
+              break;
+            }
+          }
+          String ascentTimeOutStr = "\r\nS>ascentTimeOut="+String(((ascentTimeOut-offset)/60000))+"\r\nS>";
+          int ascentTimeOutStrLen = ascentTimeOutStr.length()+1;
+          byte ascentTimeOutStrBuffer[150];
+          ascentTimeOutStr.getBytes(ascentTimeOutStrBuffer, ascentTimeOutStrLen);
+          Serial1.write(ascentTimeOutStrBuffer, ascentTimeOutStrLen);
+          missionMode++;
+        }
+
+        else if(input.equals("currentTime=")){
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              currentTime=((input.toInt())*1000)+offset;
+              break;
+            }
+          }
+          String currentTimeStr = "\r\nS>currentTime="+String(((currentTime-offset)/1000))+"\r\nS>";
+          int currentTimeStrLen = currentTimeStr.length()+1;
+          byte currentTimeStrBuffer[150];
+          currentTimeStr.getBytes(currentTimeStrBuffer, currentTimeStrLen);
+          Serial1.write(currentTimeStrBuffer, currentTimeStrLen);
+          missionMode++;
         }
         
         //if the input is the ds command, send back all of the information as a series of bytes (uses generic
@@ -644,6 +977,39 @@ void loop(){
           byte abaBuffer[100];
           aba.getBytes(abaBuffer, abaLen);
           Serial1.write(abaBuffer, abaLen);
+        }
+        
+        //if the input is pcutoff=2.0, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("pcutoff=2.0\r")){
+          delay(10);
+          String pcutoff = "\r\nS>pcutoff=2.0";
+          int pcutoffLen = pcutoff.length()+1;
+          byte pcutoffBuffer[100];
+          pcutoff.getBytes(pcutoffBuffer, pcutoffLen);
+          Serial1.write(pcutoffBuffer, pcutoffLen);
+        }
+        
+        //if the input is outputpts=y, send back the command prompt and echo the input as a series of bytes
+        //and change pOrPTSsel to 1 so that the ds command will display pts
+        else if(input.equals("outputpts=y\r")){
+          delay(10);
+          String optsy = "\r\nS>outputpts=y";
+          int optsyLen = optsy.length()+1;
+          byte optsyBuffer[100];
+          optsy.getBytes(optsyBuffer, optsyLen);
+          Serial1.write(optsyBuffer, optsyLen);
+          pOrPTSsel = 1;
+        }
+        
+        //if the input is tswait=20, send back the command prompt and echo the input as a series of bytes
+        else if(input.equals("tswait=20\r")){
+          delay(10);
+          String tsw = "\r\nS>tswait=20";
+          int tswLen = tsw.length()+1;
+          byte tswBuffer[100];
+          tsw.getBytes(tswBuffer, tswLen);
+          Serial1.write(tswBuffer, tswLen);
+          pOrPTSsel = 1;
         }
         
         //if the input is top_bin_interval=2, send back the command prompt and echo the input as a series of bytes
@@ -823,10 +1189,9 @@ void loop(){
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
         }
-        
+       
         else{
-        }
-        
+        }   
       }
     }
   }
@@ -839,6 +1204,7 @@ void loop(){
 /*                                                                       */
 /* parameters: select, an int value that represents which string will be */
 /*                  returned (PTS, PT, or P reading)                     */
+/*                                                                       */
 /* returns: String representing the PTS, PT, or P reading                */
 /*                                                                       */
 /* This function converts a reading from the analog input pin A0 to a    */
@@ -882,7 +1248,7 @@ String getReadingFromPiston(int select){
   
   //technically out of range, but use it to go to a pressure greater than 2000dbar, min change = 5dbar
   if(voltage<72){
-    pressure = 2000;
+    pressure = 2000+1*(voltage-72);
   }
   
   //for pressures between 2000-1000dbar, 72 = 2000dbar, 293 = 1000dbar, min change = 4.5045dbar
@@ -896,15 +1262,13 @@ String getReadingFromPiston(int select){
   }
   
   //for pressures between 500-0dbar, 454 = 500dbar, 1023 = 0dbar, min change = 0.878dbar
-  else if((voltage>=454)&&(voltage<964)){
-    pressure = ((0.878)*(519-(voltage-454)));
-  }
-  else if(voltage>=964){
-    pressure = 0;
+  else if((voltage>=454)&&(voltage<1024)){
+    pressure = ((0.878)*(569-(voltage-454)));
   }
   
   //adjust for hardware that amplifies the signal by approximately 1.1, then convert the float 
   //to a string using the pressureToString function
+  pressure = pressure * 1.08;
   if(cpMode == 1){
     if(pressure >= maxPress){
       maxPress = pressure;
@@ -979,10 +1343,148 @@ String getReadingFromPiston(int select){
 
 
 /*************************************************************************/
+/*                               getDynamicReading                       */
+/*                             ********************                      */
+/*                                                                       */
+/* parameters: select, an int value that represents which string will be */
+/*                  returned (PTS, PT, or P reading)                     */
+/*                                                                       */
+/*             phase, an int that represents what phase of the mission   */
+/*                  the apf expects to be in                             */
+/*                                                                       */
+/* returns: String representing the PTS, PT, or P reading                */
+/*                                                                       */
+/* This function calculates a pressure based on the time it has spent in */
+/* a given phase during a mission and produce a string that represents   */
+/* a P; P,T; or P,T,S sample. From these pressure values, we need to     */
+/* handle any ice avoidance scenarios. Then we use a relationship to     */
+/* temperature. Lastly, we can assume one last polynomail relationship   */
+/* between temperature and salinity (the same ratio as pressure to       */
+/* temperature, so use temperature to calculate). The values of these    */
+/* strings are appended to one another and formatted to match a regex    */
+/* pattern expected by the APF board on the float. Then use the select   */
+/* to choose which string (PTS, PT, or P) to send to the APF board. The  */
+/* phase of the mission is determined by the global variable phase.      */
+/*                                                                       */
+/*************************************************************************/
+
+String getDynamicReading(int select, int phase){
+  
+  updateTime();
+  
+  //original calculated values as floats
+  float pressure;
+  float temperature;
+  float salinity;
+  
+  //represent the values as longs that are either 100 or 1000 times larger than the floats
+  long pressureLong;
+  long temperatureLong;
+  long salinityLong;
+  
+  //the string representation of the pressure, temperature, salinity, all 3 together,
+  //just pressure and temperature, then the message to be sent
+  String pStr;
+  String tStr;
+  String sStr;
+  String ptsStr;
+  String ptStr;
+  String sendMessage;
+  
+  //calculate a pressure based on the current phase: 0 = descent, 1 = park, 2 = deep descent, 3 = ascent
+  switch(phase){
+    case 0:
+      pressure = float(float(currentTime)*parkPressure/float(parkDescentTime));
+      break;
+    case 1:
+      pressure = parkPressure + float(float(random(100))/float(10)) - float(float(random(100))/float(10));
+      break;
+    case 2:
+      pressure = parkPressure + float(float((currentTime-downTime))*(deepProfilePressure-parkPressure)/float(deepProfileDescentTime));
+      break;
+    case 3:
+      pressure = deepProfilePressure - float(float(((currentTime-deepProfileDescentTime)-downTime))*deepProfilePressure/float((ascentTimeOut)));
+      break;
+  }
+  
+  if(cpMode == 1){
+    if(pressure >= maxPress){
+      maxPress = pressure;
+    }
+    if(pressure <= minPress){
+      minPress = pressure;
+    }
+  }
+  
+  pStr = pressureToString(pressure);
+  
+  //determine if in ice detect, ice cap, ice breakup, or normal mode
+  //then calculate temperature based on criteria
+  
+  //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
+  if((iceAvoidance == 1)&&(pressure < 55)){
+    temperature = -2.00;
+  }
+  
+  //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
+  else if((iceAvoidance == 2)&&(pressure < 20)){
+    temperature = -2.00;
+  }
+  
+  //ice breakup mode, need a temp of > -1.78 C the whole way up
+  else if((iceAvoidance == 3)&&(pressure <55)){
+    temperature = 23.2-float(pressure*0.0088);
+  }
+  
+  //calculate temperature normally
+  else{ 
+    temperature = 23.2-float(pressure*0.0088);
+  }
+  
+  tStr = tempOrSalinityToString(temperature);
+  
+  //calculate a float salinty value based on the pressure, assume linearity with the 
+  //minimum salinity of 33.5. then convert the float 
+  //to a string using the tempOrSalinityToString function
+  salinity = temperature*0.1+ 34.9;
+  sStr = tempOrSalinityToString(salinity);
+  
+  //add all of the strings to create one string that represents a p,t,s reading
+  ptsStr = pStr+", "+tStr+", "+sStr+"\r\n";
+  
+  //add the pressure and temperature strings to create one string that represents a p,t reading
+  ptStr = pStr+", "+tStr+"\r\n";
+  
+  
+  //choose which string you want to return
+  switch(select){
+    case 0:
+      sendMessage = "";
+      break;
+    case 1:
+      sendMessage = "";
+      break;
+    case 2:
+      sendMessage = ptsStr;
+      break;
+    case 3:
+      sendMessage = ptStr;
+      break;
+    case 4:
+      sendMessage = (pStr)+"\r\n";
+      break;
+  }
+  
+  //return the given string
+  return sendMessage;
+}
+
+/*************************************************************************/
 /*                              binaverage                               */
 /*                              **********                               */
 /*                                                                       */
 /* parameters: none                                                      */
+/*                                                                       */
 /* returns: String representing the bin in the format of avg P, avg T,   */
 /*              avg S, then the number of bins                           */
 /*                                                                       */
@@ -1099,6 +1601,7 @@ String binaverage(){
 /*                                                                       */
 /* parameters: aFloat, a float value representing the float that is      */
 /*                 going to be converted to a string                     */
+/*                                                                       */
 /* returns: an string value that will represent the float as a string    */
 /*                                                                       */
 /* This function creates a string that will look like a float by         */
@@ -1140,12 +1643,13 @@ String pressureToString(float aFloat){
 /*                                                                       */
 /* parameters: aFloat, a float value representing the float that is      */
 /*                 going to be converted to a string                     */
+/*                                                                       */
 /* returns: an string value that will represent the float as a string    */
 /*                                                                       */
 /* This function creates a string that will look like a float by         */
 /* splitting it into its whole and decimal parts, then adding them as    */
 /* two strings with the appropriate formatting for a temperature or      */
-/* salinity value.
+/* salinity value.                                                       */
 /*                                                                       */
 /*************************************************************************/
 
@@ -1191,6 +1695,7 @@ String tempOrSalinityToString(float aFloat){
 /*                                                                       */
 /* parameters: pin, an integer value representing the pin that is        */
 /*                 connected to the input being toggled                  */
+/*                                                                       */
 /* returns: an integer value that will be positive (1) if the pin is     */
 /*                 high and negative (-1) if the pin is low              */
 /*                                                                       */
@@ -1244,6 +1749,7 @@ int debounce(int pin){
 /*                                ********                               */
 /*                                                                       */
 /* parameters: timeout, an int representing the desired runtime in ns    */
+/*                                                                       */
 /* returns: none                                                         */
 /*                                                                       */
 /* This function runs a timer for the given interval of time, uses code  */
@@ -1264,3 +1770,41 @@ void runTimer(int timeOut){
   }
 }
 
+
+void updateTime(){
+  if(missionMode >= 107){
+    currentTime = millis()-offset;
+    Serial.println(String((currentTime-offset)));
+    if(currentTime>=parkDescentTime){
+      if(currentTime>=downTime){
+        if(currentTime>=(downTime+deepProfileDescentTime)){
+          if(currentTime>=(downTime+deepProfileDescentTime+ascentTimeOut)){
+            missionMode = 0;
+            parkDescentTime = 18000000;
+            parkPressure = 1000;
+            downTime = 86400000;
+            deepProfileDescentTime = 18000000;
+            deepProfilePressure = 2000;
+            ascentTimeOut = 36000000;
+            currentTime = 0;
+            offset = 0;
+          }
+          else{
+            phase = 3;
+          }
+        }  
+        else{
+          phase = 2;
+        }
+      }
+      else{
+        phase = 1;
+      }
+    }
+  }
+  else{
+  }
+}
+      
+ 
+      
