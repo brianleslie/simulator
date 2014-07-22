@@ -146,7 +146,7 @@ int phase = 0;
 
 int parkPressure = 1000, deepProfilePressure = 2000;
 
-long offset = 0;
+long offset = 0, setOffset = 0;
 
 long currentTime = 0, parkDescentTime = 18000000, downTime = 86400000, deepProfileDescentTime = 18000000, ascentTimeOut = 36000000;
 
@@ -172,7 +172,7 @@ void checkLine();
 
 void runTimer(int);
 
-void updateTime();
+long updateTime();
 
 void setup();
 
@@ -504,7 +504,7 @@ void loop(){
             input+=temp;
             if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))||(input.equals("parkDescentTime="))
                            ||(input.equals("parkPressure="))||(input.equals("downTime="))||(input.equals("deepProfileDescentTime="))
-                           ||(input.equals("deepProfilePressure="))||(input.equals("ascentTimeOutOut="))
+                           ||(input.equals("deepProfilePressure="))||(input.equals("ascentTimeOut="))
                            ||(input.equals("currentTime="))){
               break;
             }
@@ -524,13 +524,13 @@ void loop(){
           digitalWrite(8, LOW);
           String m_config = "mission\r\nPlease enter values for the following parameters based on your misssion...\r\n"
           "\r\n"
-          "\r\nPark Pressure (dbar):                                                parkPressureure=int"
-          "\r\nPark Descent Time (minutes):                                         parkDescentTime=int"
-          "\r\nDown Time(minutes):                                                  downTime=int"
-          "\r\nDeep Profile Pressure:                                               deepProfilePressure=int"
-          "\r\nDeep Profile Descent Time(minutes):                                  deepProfileDescentTime=int"
-          "\r\nAscent Time Out(minutes):                                            ascentTimeOutOut=int"
-          "\r\nCurrent Time(seconds) (optional- use to change simulation time):     currentTime=int"
+          "\r\nPark Pressure (dbar):                                            parkPressure=int"
+          "\r\nPark Descent Time (minutes):                                     parkDescentTime=int"
+          "\r\nDown Time(minutes):                                              downTime=int"
+          "\r\nDeep Profile Pressure:                                           deepProfilePressure=int"
+          "\r\nDeep Profile Descent Time(minutes):                              deepProfileDescentTime=int"
+          "\r\nAscent Time Out(minutes):                                        ascentTimeOutOut=int"
+          "\r\nCurrent Time(seconds) (optional- use to change simulation time): currentTime=int"
           "\r\nS>";
           int m_configLen = m_config.length()+1;
           byte m_configBuffer[1000];
@@ -540,13 +540,15 @@ void loop(){
         }
         
         else if(input.equals("list parameters\r")){
+          updateTime();
           String list = "list parameters\r\nPark Pressure: " + String(parkPressure) +  
           "\r\nPark Descent Time: " + String((parkDescentTime/60000)) +
           "\r\nDown Time: " + String((downTime/60000)) +
           "\r\nDeep Profile Pressure: " + String(deepProfilePressure) +
           "\r\nDeep Profile Descent Time: " + String((deepProfileDescentTime/60000)) +
           "\r\nAscent Time Out: " + String((ascentTimeOut/60000)) + 
-          "\r\nCurrent Time: " + String((currentTime/1000)) + "\r\nS>";
+          "\r\ncurrentTime: "+String(((currentTime)/1000))+" ("+String(((currentTime)/60000))+" minutes)\r\nS>";
+          Serial.println(String(currentTime));
           int listLen = list.length()+1;
           byte listBuffer[1000];
           list.getBytes(listBuffer, listLen);
@@ -561,19 +563,13 @@ void loop(){
           start.getBytes(startBuffer, startLen);
           Serial1.write(startBuffer, startLen);
           offset = millis();
-          Serial.println(String(offset));
+          setOffset = 0;
           currentTime = offset;
-          Serial.println(String((currentTime-offset)));
           parkDescentTime+=offset;
-          Serial.println(String((parkDescentTime-offset)));
           downTime+=offset;
-          Serial.println(String((downTime-offset)));
           deepProfileDescentTime+=offset;
-          Serial.println(String((deepProfileDescentTime-offset)));
           ascentTimeOut+=offset;
-          Serial.println(String((ascentTimeOut-offset)));
           missionMode+=100;
-          Serial.println(String(missionMode));
         }
         
         else if(input.equals("end mission\r")){
@@ -590,10 +586,8 @@ void loop(){
           deepProfilePressure = 2000;
           ascentTimeOut = 36000000;
           currentTime = 0;
-          offset = 0;
-          /*****************************code to reset timer***************************/
-          
-          
+          offset = 0; 
+          setOffset = 0;
         }
         
         else if(input.equals("pause mission\r")){
@@ -602,9 +596,7 @@ void loop(){
           byte m_pausedBuffer[100];
           m_paused.getBytes(m_pausedBuffer, m_pausedLen);
           Serial1.write(m_pausedBuffer, m_pausedLen);
-          /******************************code to stop timer***************************/
-          
-          /*******************************code to turn missionMode off****************/
+          missionMode = 0;
         }
         
         else if(input.equals("resume mission\r")){
@@ -613,7 +605,7 @@ void loop(){
           byte m_resumeBuffer[100];
           m_resume.getBytes(m_resumeBuffer, m_resumeLen);
           Serial1.write(m_resumeBuffer, m_resumeLen);
-          /******************************code to start timer back up******************/
+          
           
           /*******************************code to turn missionMode back on************/
         }
@@ -802,11 +794,18 @@ void loop(){
                   }
                 }
               }
+              if((((input.toInt())*1000)+offset)<(updateTime())){
+                offset=millis();
+              }
+              else{
+              }
+              setOffset = (input.toInt())*1000;
               currentTime=((input.toInt())*1000)+offset;
+              Serial.println(String(currentTime));
               break;
             }
           }
-          String currentTimeStr = "\r\nS>currentTime="+String(((currentTime-offset)/1000))+"\r\nS>";
+          String currentTimeStr = "\r\nS>currentTime="+String(((currentTime-offset)/1000))+" ("+String(((currentTime-offset)/60000))+" minutes)\r\nS>";
           int currentTimeStrLen = currentTimeStr.length()+1;
           byte currentTimeStrBuffer[150];
           currentTimeStr.getBytes(currentTimeStrBuffer, currentTimeStrLen);
@@ -819,12 +818,15 @@ void loop(){
         //fields that will vary: the number of bins, number of samples, and whether it is expecting only P
         //or pts for real time output
         else if(input.equals("ds\r")){
+          digitalWrite(8, LOW);
+          String countStr = String(count);
+          String nBinsStr = String(nBins);
           String ds = "\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
           "\r\nfirmware compilation date: 18 December 2007 09:20"
           "\r\nstop profile when pressure is less than = 2.0 decibars"
           "\r\nautomatic bin averaging at end of profile disabled"
-          "\r\nnumber of samples = "+String(count)+
-          "\r\nnumber of bins = "+String(nBins)+
+          "\r\nnumber of samples = "+countStr+
+          "\r\nnumber of bins = "+nBinsStr+
           "\r\ntop bin interval = 2"
           "\r\ntop bin size = 2"
           "\r\ntop bin max = 10"
@@ -840,40 +842,41 @@ void loop(){
           int dsLen = ds.length()+1;
           byte dsBuffer[1000];
           ds.getBytes(dsBuffer, dsLen);
-          Serial1.write(dsBuffer, dsLen);
+          Serial1.write(dsBuffer, dsLen);  
+          Serial.write(dsBuffer, dsLen);      
         }
         
         //if the input is the dc command, send back all of the information as a series of bytes (uses generic
         //info based on an actual seabird (can edit field in this string if necessary)
         else if(input.equals("dc\r")){
-          String dc = "\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
-          "\r\ntemperature:  19-dec-10    "
-          "\r\nTA0 =  4.882851e-05    "
-          "\r\nTA1 =  2.747638e-04    "
-          "\r\nTA2 = -2.478284e-06    "
-          "\r\nTA3 =  1.530870e-07"
-          "\r\nconductivity:  19-dec-10    "
-          "\r\nG = -1.013506e+00    "
-          "\r\nH =  1.473695e-01    "
-          "\r\nI = -3.584262e-04    "
-          "\r\nJ =  4.733101e-05    "
-          "\r\nCPCOR = -9.570001e-08    "
-          "\r\nCTCOR =  3.250000e-06    "
-          "\r\nWBOTC =  2.536509e-08"
+          String dc = "dc\r\nSBE 41CP UW V 2.0  SERIAL NO. 4242"
+          "\r\ntemperature:  19-dec-10"
+          "\r\n    TA0 =  4.882851e-05"
+          "\r\n    TA1 =  2.747638e-04"
+          "\r\n    TA2 = -2.478284e-06"
+          "\r\n    TA3 =  1.530870e-07"
+          "\r\nconductivity:  19-dec-10"
+          "\r\n    G = -1.013506e+00"
+          "\r\n    H =  1.473695e-01"
+          "\r\n    I = -3.584262e-04"
+          "\r\n    J =  4.733101e-05"
+          "\r\n    CPCOR = -9.570001e-08"
+          "\r\n    CTCOR =  3.250000e-06"
+          "\r\n    WBOTC =  2.536509e-08"
           "\r\npressure S/N = 3212552, range = 2900 psia:  14-dec-10    "
-          "\r\nPA0 =  6.297445e-01    "
-          "\r\nPA1 =  1.403743e-01    "
-          "\r\nPA2 = -3.996384e-08    "
-          "\r\nPTCA0 =  6.392568e+01    "
-          "\r\nPTCA1 =  2.642689e-01    "
-          "\r\nPTCA2 = -2.513274e-03    "
-          "\r\nPTCB0 =  2.523900e+01    "
-          "\r\nPTCB1 = -2.000000e-04    "
-          "\r\nPTCB2 =  0.000000e+00    "
-          "\r\nPTHA0 = -7.752968e+01    "
-          "\r\nPTHA1 =  5.141199e-02    "
-          "\r\nPTHA2 = -7.570264e-07    "
-          "\r\nPOFFSET =  0.000000e+00"
+          "\r\nPA0 =  6.297445e-01"
+          "\r\n    PA1 =  1.403743e-01"
+          "\r\n    PA2 = -3.996384e-08"
+          "\r\n    PTCA0 =  6.392568e+01"
+          "\r\n    PTCA1 =  2.642689e-01"
+          "\r\n    PTCA2 = -2.513274e-03"
+          "\r\n    PTCB0 =  2.523900e+01"
+          "\r\n    PTCB1 = -2.000000e-04"
+          "\r\n    PTCB2 =  0.000000e+00"
+          "\r\n    PTHA0 = -7.752968e+01"
+          "\r\n    PTHA1 =  5.141199e-02"
+          "\r\n    PTHA2 = -7.570264e-07"
+          "\r\n    POFFSET =  0.000000e+00"
           "\r\nS>";
           int dcLen = dc.length()+1;
           byte dcBuffer[1000];
@@ -912,7 +915,10 @@ void loop(){
         //da command to be run (makes sure there is actual data to dump when requested)
         else if(input.equals("binaverage\r")){
           nBins = (int(maxPress)/2) + 1;
-          String binavg = "\r\nS>binaverage\r\nsamples = "+String(count)+", maxPress = "+pressureToString(maxPress)+"\r\nrd: 0\r\navg: 0\r\n\ndone, nbins = "+String(nBins)+"\r\nS>";
+          String countStr2 = String(count);
+          String maxPressStr = pressureToString(maxPress);
+          String nBinsStr2 = String(nBins);
+          String binavg = "\r\nS>binaverage\r\nsamples = "+countStr2+", maxPress = "+maxPressStr+"\r\nrd: 0\r\navg: 0\r\n\ndone, nbins = "+nBinsStr2+"\r\nS>";
           int binavgLen = binavg.length()+1;
           byte binavgBuffer[100];
           binavg.getBytes(binavgBuffer, binavgLen);
@@ -984,7 +990,7 @@ void loop(){
           delay(10);
           String pcutoff = "\r\nS>pcutoff=2.0";
           int pcutoffLen = pcutoff.length()+1;
-          byte pcutoffBuffer[100];
+          byte pcutoffBuffer[10];
           pcutoff.getBytes(pcutoffBuffer, pcutoffLen);
           Serial1.write(pcutoffBuffer, pcutoffLen);
         }
@@ -995,7 +1001,7 @@ void loop(){
           delay(10);
           String optsy = "\r\nS>outputpts=y";
           int optsyLen = optsy.length()+1;
-          byte optsyBuffer[100];
+          byte optsyBuffer[10];
           optsy.getBytes(optsyBuffer, optsyLen);
           Serial1.write(optsyBuffer, optsyLen);
           pOrPTSsel = 1;
@@ -1006,7 +1012,7 @@ void loop(){
           delay(10);
           String tsw = "\r\nS>tswait=20";
           int tswLen = tsw.length()+1;
-          byte tswBuffer[100];
+          byte tswBuffer[10];
           tsw.getBytes(tswBuffer, tswLen);
           Serial1.write(tswBuffer, tswLen);
           pOrPTSsel = 1;
@@ -1017,7 +1023,7 @@ void loop(){
           delay(10);
           String tbi = "\r\nS>top_bin_interval=2";
           int tbiLen = tbi.length()+1;
-          byte tbiBuffer[100];
+          byte tbiBuffer[10];
           tbi.getBytes(tbiBuffer, tbiLen);
           Serial1.write(tbiBuffer, tbiLen);
         }
@@ -1027,7 +1033,7 @@ void loop(){
           delay(10);
           String tbs = "\r\nS>top_bin_size=2";
           int tbsLen = tbs.length()+1;
-          byte tbsBuffer[100];
+          byte tbsBuffer[10];
           tbs.getBytes(tbsBuffer, tbsLen);
           Serial1.write(tbsBuffer, tbsLen);
         }
@@ -1037,7 +1043,7 @@ void loop(){
           delay(10);
           String tbm = "\r\nS>top_bin_max=10";
           int tbmLen = tbm.length()+1;
-          byte tbmBuffer[100];
+          byte tbmBuffer[10];
           tbm.getBytes(tbmBuffer, tbmLen);
           Serial1.write(tbmBuffer, tbmLen);
         }
@@ -1047,7 +1053,7 @@ void loop(){
           delay(10);
           String mbi = "\r\nS>middle_bin_interval=2";
           int mbiLen = mbi.length()+1;
-          byte mbiBuffer[100];
+          byte mbiBuffer[10];
           mbi.getBytes(mbiBuffer, mbiLen);
           Serial1.write(mbiBuffer, mbiLen);
         }
@@ -1057,7 +1063,7 @@ void loop(){
           delay(10);
           String mbs = "\r\nS>middle_bin_size=2";
           int mbsLen = mbs.length()+1;
-          byte mbsBuffer[100];
+          byte mbsBuffer[10];
           mbs.getBytes(mbsBuffer, mbsLen);
           Serial1.write(mbsBuffer, mbsLen);
         }
@@ -1067,7 +1073,7 @@ void loop(){
           delay(10);
           String mbm = "\r\nS>middle_bin_max=20";
           int mbmLen = mbm.length()+1;
-          byte mbmBuffer[100];
+          byte mbmBuffer[10];
           mbm.getBytes(mbmBuffer, mbmLen);
           Serial1.write(mbmBuffer, mbmLen);
         }
@@ -1077,7 +1083,7 @@ void loop(){
           delay(10);
           String bbi = "\r\nS>bottom_bin_interval=2";
           int bbiLen = bbi.length()+1;
-          byte bbiBuffer[100];
+          byte bbiBuffer[10];
           bbi.getBytes(bbiBuffer, bbiLen);
           Serial1.write(bbiBuffer, bbiLen);
         }
@@ -1087,7 +1093,7 @@ void loop(){
           delay(10);
           String bbs = "\r\nS>bottom_bin_size=2";
           int bbsLen = bbs.length()+1;
-          byte bbsBuffer[100];
+          byte bbsBuffer[10];
           bbs.getBytes(bbsBuffer, bbsLen);
           Serial1.write(bbsBuffer, bbsLen);
         }
@@ -1097,7 +1103,7 @@ void loop(){
           delay(10);
           String itb = "\r\nS>includetransitionbin=n";
           int itbLen = itb.length()+1;
-          byte itbBuffer[100];
+          byte itbBuffer[10];
           itb.getBytes(itbBuffer, itbLen);
           Serial1.write(itbBuffer, itbLen);
         }
@@ -1107,7 +1113,7 @@ void loop(){
           delay(10);
           String ib = "\r\nS>includenbin=y";
           int ibLen = ib.length()+1;
-          byte ibBuffer[100];
+          byte ibBuffer[10];
           ib.getBytes(ibBuffer, ibLen);
           Serial1.write(ibBuffer, ibLen);
         }
@@ -1118,7 +1124,7 @@ void loop(){
           delay(10);
           String optsn = "\r\nS>outputpts=n";
           int optsnLen = optsn.length()+1;
-          byte optsnBuffer[100];
+          byte optsnBuffer[10];
           optsn.getBytes(optsnBuffer, optsnLen);
           Serial1.write(optsnBuffer, optsnLen);
           pOrPTSsel = 0;
@@ -1130,7 +1136,7 @@ void loop(){
           iceAvoidance = 1;
           String icedMode = "\r\nice detect mode on\r\nS>";
           int icedModeLen = icedMode.length()+1;
-          byte icedModeBuffer[100];
+          byte icedModeBuffer[10];
           icedMode.getBytes(icedModeBuffer, icedModeLen);
           Serial1.write(icedModeBuffer, icedModeLen);
         }
@@ -1141,7 +1147,7 @@ void loop(){
           iceAvoidance = 2;
           String icecMode = "\r\nice cap mode on\r\nS>";
           int icecModeLen = icecMode.length()+1;
-          byte icecModeBuffer[100];
+          byte icecModeBuffer[10];
           icecMode.getBytes(icecModeBuffer, icecModeLen);
           Serial1.write(icecModeBuffer, icecModeLen);
         }
@@ -1152,7 +1158,7 @@ void loop(){
           iceAvoidance = 1;
           String icebMode = "\r\nice breakup mode on\r\nS>";
           int icebModeLen = icebMode.length()+1;
-          byte icebModeBuffer[100];
+          byte icebModeBuffer[10];
           icebMode.getBytes(icebModeBuffer, icebModeLen);
           Serial1.write(icebModeBuffer, icebModeLen);
         }
@@ -1163,7 +1169,7 @@ void loop(){
           iceAvoidance = -1;
           String iceModeOff = "\r\nice detect mode off\r\nS>";
           int iceModeOffLen = iceModeOff.length()+1;
-          byte iceModeOffBuffer[100];
+          byte iceModeOffBuffer[10];
           iceModeOff.getBytes(iceModeOffBuffer, iceModeOffLen);
           Serial1.write(iceModeOffBuffer, iceModeOffLen);
         }
@@ -1174,7 +1180,7 @@ void loop(){
           iceAvoidance = -1;
           String icecModeOff = "\r\nice cap mode off\r\nS>";
           int icecModeOffLen = icecModeOff.length()+1;
-          byte icecModeOffBuffer[100];
+          byte icecModeOffBuffer[10];
           icecModeOff.getBytes(icecModeOffBuffer, icecModeOffLen);
           Serial1.write(icecModeOffBuffer, icecModeOffLen);
         }
@@ -1185,11 +1191,48 @@ void loop(){
           iceAvoidance = -1;
           String icebModeOff = "\r\nice breakup mode off\r\nS>";
           int icebModeOffLen = icebModeOff.length()+1;
-          byte icebModeOffBuffer[100];
+          byte icebModeOffBuffer[10];
           icebModeOff.getBytes(icebModeOffBuffer, icebModeOffLen);
           Serial1.write(icebModeOffBuffer, icebModeOffLen);
         }
-       
+        
+        else if(input.equals("?\r")){
+          String list = "?\r\nAPF-9 & APF-11 Iridium SBE41cp Simulator"
+          "\r\nid"
+          "\r\nid on"
+          "\r\nid off"
+          "\r\nic"
+          "\r\nic on"
+          "\r\nic off"
+          "\r\nib"
+          "\r\nib on"
+          "\r\nib off"
+          "\r\nqsr"
+          "\r\nda"
+          "\r\nds"
+          "\r\ndc"
+          "\r\nstartprofile"
+          "\r\nstopprofile"
+          "\r\nbinaverage"
+          "\r\nmission"
+          "\r\nlist parameters"
+          "\r\nstart descent"
+          "\r\nparkPressure=<value>"
+          "\r\nparkDescentTime=<value>"
+          "\r\ndeepProfilePressure=<value>"
+          "\r\ndeepProfileDescentTime=<value>"
+          "\r\ndownTime=<value>"
+          "\r\nascentTimeOut=<value>"
+          "\r\ncurrentTime=<value>"
+          "\r\npause mission"
+          "\r\nresume mission"
+          "\r\nend mission\r\nS>";
+          int listLen = list.length()+1;
+          byte listBuffer[100];
+          list.getBytes(listBuffer, listLen);
+          Serial1.write(listBuffer, listLen);
+        }
+        
         else{
         }   
       }
@@ -1284,7 +1327,7 @@ String getReadingFromPiston(int select){
   //then calculate temperature based on criteria
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
-  if((iceAvoidance == 1)&&(pressure < 55)){
+  if((iceAvoidance == 1)&&(pressure < 50)){
     temperature = -2.00;
   }
   
@@ -1771,13 +1814,19 @@ void runTimer(int timeOut){
 }
 
 
-void updateTime(){
+long updateTime(){
   if(missionMode >= 107){
-    currentTime = millis()-offset;
-    Serial.println(String((currentTime-offset)));
+    phase = 0;
+    currentTime = millis() + setOffset - offset;
+    Serial.println(String(currentTime));
+    Serial.println(String(setOffset));
+    Serial.println(String(offset));
     if(currentTime>=parkDescentTime){
+      phase = 1;
       if(currentTime>=downTime){
+        phase = 2;
         if(currentTime>=(downTime+deepProfileDescentTime)){
+          phase = 3;
           if(currentTime>=(downTime+deepProfileDescentTime+ascentTimeOut)){
             missionMode = 0;
             parkDescentTime = 18000000;
@@ -1788,22 +1837,13 @@ void updateTime(){
             ascentTimeOut = 36000000;
             currentTime = 0;
             offset = 0;
-          }
-          else{
-            phase = 3;
+            setOffset = 0;
           }
         }  
-        else{
-          phase = 2;
-        }
-      }
-      else{
-        phase = 1;
       }
     }
   }
-  else{
-  }
+  return currentTime;
 }
       
  
