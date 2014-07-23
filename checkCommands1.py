@@ -43,8 +43,9 @@ class dialup(object):
             return None
         while not done:
             response = self.getline(timeout)
-            if response[0] != '\r':
-                done = True
+            if response != None:
+                if response[0] != '\r':
+                    done = True
         return response.strip()
     
     def connect(self, dn):
@@ -72,10 +73,9 @@ class dialup(object):
     def runCmd(self, command, expect, commandTimeout):
         passed = self.cmd(command, commandTimeout)
         print command
-        time.sleep(1)
+        time.sleep(commandTimeout)
         if passed and passed.find(expect) >= 0:
-            print expect
-            time.sleep(1)
+            print passed
             return 1
         else:
             return -1
@@ -87,7 +87,40 @@ class dialup(object):
         noDialToneCount = 0
         totalCount = 0
         success = 0
-        if self.runCmd('m_hello','>', cmdTimeout) >= 0:
+        if self.runCmd('m_hello','eng>', cmdTimeout) >= 0:
+            if self.runCmd('buoy_stop','eng>', cmdTimeout) >= 0:
+                if self.runCmd('m_production','eng>', cmdTimeout) >= 0:
+                    if self.runCmd('m_state','Mission State: PRODUCTION', 0) >= 0:
+                        if self.runCmd('seabird_get_p','Seabird error: 0', 4) >= 0:
+                            print 'SUCCESS!'
+                        if self.runCmd('seabird_get_t','Temperature:', 4)>= 0:
+                            print 'SUCCESS!'
+                        if self.runCmd('seabird_get_pt','Seabird Error: 0', 4) >= 0:
+                            print 'SUCCESS!'
+                        if self.runCmd('seabird_get_pts','Seabird Error: 0', 4) >= 0:
+                            print 'SUCCESS!'
+                        if self.runCmd('sys_chat COM2 B9600','Connected!', cmdTimeout) >= 0:
+                            print 'SUCCESS!'                        
+                            time.sleep(2)
+                            self.send('\r')
+                            time.sleep(1)
+                            self.send('\r')
+                            self.getline(1)
+                            print self.getline(1)
+                            self.send('ds\r')
+                            print self.getline(0)
+                            print self.getline(0)
+                            print self.getline(0)
+                            print self.getline(0)
+                            print self.getline(0)
+                            print self.cmd('dc', 10)
+                            self.send('qsr\r')
+                            time.sleep(7)
+                            print 'open terminal, hit ESC key to continue'
+                            time.sleep(1)
+                            return
+                                
+        elif self.runCmd('m_hello','>', cmdTimeout) >= 0:
             if self.runCmd('twreng','Password:', cmdTimeout) >= 0:
                 password = self.cmd('pikabo', cmdTimeout)
                 time.sleep(1)
@@ -97,42 +130,26 @@ class dialup(object):
                     if self.runCmd('buoy_stop','eng>', cmdTimeout) >= 0:
                         if self.runCmd('m_production','eng>', cmdTimeout) >= 0:
                             if self.runCmd('m_state','Mission State: PRODUCTION', 0) >= 0:
-                                return
-##                                if self.runCmd('sys_chat COM2 B9600','Connected!', cmdTimeout) >= 0:
-##                                    time.sleep(2)
-##                                    self.send('\r')
-##                                    time.sleep(1)
-##                                    self.send('\r')
-##                                    print self.getline(1)
-##                                    if self.getline(1) == 'S>':
-##                                        ##print 'S>'
-##                                        time.sleep(1)
-##                                        if self.runCmd('id','ice detect mode on', cmdTimeout) >= 0:
-##                                            print 'passed'
-##                                        else:
-##                                            print 'failed'
-##                                            return
-##                        
-                        
-        elif self.runCmd('m_hello','eng>', cmdTimeout) >= 0:
-            if self.runCmd('buoy_stop','eng>', cmdTimeout) >= 0:
-                if self.runCmd('m_production','eng>', cmdTimeout) >= 0:
-                    if self.runCmd('m_state','Mission State: PRODUCTION', 0) >= 0:
-                        if self.runCmd('sys_chat COM2 B9600','Connected!', cmdTimeout) >= 0:
-                            time.sleep(2)
-                            self.send('\r')
-                            time.sleep(1)
-                            self.send('\r')
-                            self.getline(1)
-                            print self.getline(1)
-                            if self.getline(1) == 'S>':
-                                ##print 'S>'
-                                time.sleep(1)
-                                if self.runCmd('id','ice detect mode on', cmdTimeout) >= 0:
-                                    print 'passed'
-                                else:
-                                    print 'failed'
-                                    return
+                                if self.runCmd('seabird_get_p','Seabird error: 0', 3) >= 0:
+                                    if self.runCmd('seabird_get_pt','Seabird Error: 0', 4) >= 0:
+                                        if self.runCmd('seabird_get_pts','Seabird Error: 0', 5) >= 0:
+                                            if self.runCmd('sys_chat COM2 B9600','Connected!', cmdTimeout) >= 0:
+                                                time.sleep(2)
+                                                self.send('\r')
+                                                time.sleep(1)
+                                                self.send('\r')
+                                                print self.getline(1)
+                                                if self.getline(1) == 'S>':
+                                                    ##print 'S>'
+                                                    time.sleep(1)
+                                                    if self.runCmd('id','ice detect mode on', cmdTimeout) >= 0:
+                                                        print 'passed'
+                                                        return
+                                                    else:
+                                                        print 'failed'
+                                                        return
+                                    
+ 
         else:
             time.sleep(2)
             self.send('\r')
