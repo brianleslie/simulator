@@ -102,6 +102,21 @@
 /*                                                                       */
 /*************************************************************************/
 
+#define PARKDESCENT 0
+#define PARK 1
+#define DEEPDESCENT 2
+#define ASCENT 3
+
+#define SERNO 1
+#define PTS 2
+#define PT 3
+#define P 4
+
+#define NOICE -1
+#define ICEDETECT 1
+#define ICECAP 2
+#define ICEBREAKUP 3
+
 int interruptMessage = 0;
 int commandMode = -1;
 int cpMode = -1;
@@ -144,7 +159,7 @@ String stopprofile = "stop";
 
 int missionMode = 0;
 
-int phase = 0;
+int phase = PARKDESCENT;
 
 int parkPressure = 1000, deepProfilePressure = 2000;
 
@@ -243,7 +258,7 @@ void checkLine(){
   //if the request line is still high, choose message 1 (get serial number / firmware rev) 
   if(digitalRead(2)==HIGH){
     interruptMessage = 1;
-    commandMode = 1;
+    commandMode = SERNO;
   }
   
   //if the request line is low, check the other two lines
@@ -251,19 +266,19 @@ void checkLine(){
     
     //if the mode line is high, choose message 2 (get pts)
     if(digitalRead(3)==HIGH){
-      interruptMessage = 2;
+      interruptMessage = PTS;
     }
     
     //if the mode line (3) is low, and the Rx line (19) is high (check with debounce to be safe)\
     //choose message 3 (get pt)
     else if((debounce(19)>0)&&(debounce(3)<0)){
-      interruptMessage = 3;
+      interruptMessage = PT;
     }
     
     //if the mode line (3) is low, and the Rx line (19) is low (check with debounce to be safe)
     //choose message 4 (get p)
     else if((debounce(19)<0)&&(debounce(3)<0)){//get p
-      interruptMessage = 4;
+      interruptMessage = P;
     }
     
     //else don't do anything
@@ -350,7 +365,7 @@ void loop(){
       
     //if it is 1, convert the global string msg to the global byte array cmdMode
     //then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-    case 1:
+    case SERNO:
       delay(1300);
       writeBytes(msg);
       interruptMessage = 0;
@@ -359,13 +374,13 @@ void loop(){
     //if it is 2, clear any junk analog values on A0 before getting the p,t,s value based on the analog 
     //value on pin A0, set msg2 equal to this value, then convert the global string msg2 to the global 
     //byte array pts, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-    case 2:
+    case PTS:
       analogRead(A0);
       if(missionMode < 107){
-        msg2 = getReadingFromPiston(2);
+        msg2 = getReadingFromPiston(PTS);
       }
       else if(missionMode >= 107){
-        msg2 = getDynamicReading(2, phase);
+        msg2 = getDynamicReading(PTS, phase);
       }
       writeBytes(msg2);
       interruptMessage = 0;
@@ -374,13 +389,13 @@ void loop(){
     //if it is 3, clear any junk analog values on A0 before getting the p,t value based on the analog
     //value on pin A0, set msg3 eqaul to this value, then convert the global string msg3 to the global 
     //byte array pt, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-    case 3:
+    case PT:
       analogRead(A0);
      if(missionMode < 107){
-        msg3 = getReadingFromPiston(3);
+        msg3 = getReadingFromPiston(PT);
       }
       else if(missionMode >= 107){
-        msg3 = getDynamicReading(3, phase);
+        msg3 = getDynamicReading(PT, phase);
       }
       writeBytes(msg3);
       interruptMessage = 0;
@@ -389,13 +404,13 @@ void loop(){
     //if it is 4, clear any junk analog values on A0 before getting the p value based on the analog
     //value on pin A0, set msg4 eqaul to this value, then convert the global string msg4 to the global 
     //byte array p, then send the array over Serial1, reset interruptMessage to 0, then leave the loop
-    case 4:
+    case P:
       analogRead(A0);
       if(missionMode < 107){
-        msg4 = getReadingFromPiston(4);
+        msg4 = getReadingFromPiston(P);
       }
       else if(missionMode >= 107){
-        msg4 = getDynamicReading(4, phase);
+        msg4 = getDynamicReading(P, phase);
       }
       writeBytes(msg4);
       interruptMessage = 0;
@@ -878,14 +893,6 @@ void loop(){
           attachInterrupt(0, checkLine, RISING);
           cpMode = 1;
         }
-        //if the input is startprofile, recognize that it is the start profile command,
-        //then send back that the profile has started, reattach interrupt to pin2, and 
-        //turn on continuous profiling mode
-        else if(input.equals("startprofile")){
-          String cp = "\r\nS>startprofile\r\nprofile started, pump delay = 0 seconds\r\nS>";
-          writeBytes(cp);
-          cpMode = 1;
-        }
         
         //if the input is stopprofile, recognize that it is the stop profile command,
         //then send back that the profile has stopped, ignore the external interrupt
@@ -977,7 +984,6 @@ void loop(){
           delay(10);
           String tsw = "\r\nS>tswait=20";
           writeBytes(tsw);
-          pOrPTSsel = 1;
         }
         
         //if the input is top_bin_interval=2, send back the command prompt and echo the input as a series of bytes
@@ -1063,7 +1069,7 @@ void loop(){
         //change the global variable ice avoidance to 1, which is detect mode. also assume ice will
         //be detected at 20 dbar
         else if((input.equals("id\r"))||(input.equals("id on\r"))){
-          iceAvoidance = 1;
+          iceAvoidance = ICEDETECT;
           icePressure = 20;
           String icedMode = "\r\nice detect mode on\r\nS>";
           writeBytes(icedMode);
@@ -1092,7 +1098,7 @@ void loop(){
               break;
             }
           }
-          iceAvoidance = 1;
+          iceAvoidance = ICEDETECT;
           String icedaMode = "\r\nice detect mode on, will detect ice at "+String(icePressure)+"dbar\r\nS>";
           writeBytes(icedaMode);
         }
@@ -1101,7 +1107,7 @@ void loop(){
         //change the global variable ice avoidance to 2, which is cap mode
         else if((input.equals("ic\r"))||(input.equals("ic on\r"))){
           icePressure = 4;
-          iceAvoidance = 2;
+          iceAvoidance = ICECAP;
           String icecMode = "\r\nice cap mode on\r\nS>";
           writeBytes(icecMode);
         }
@@ -1129,7 +1135,7 @@ void loop(){
               break;
             }
           }
-          iceAvoidance = 2;
+          iceAvoidance = ICECAP;
           String icecaMode = "\r\nice cap mode on, will detect ice at "+String(icePressure)+"dbar\r\nS>";
           writeBytes(icecaMode);
         }
@@ -1137,7 +1143,7 @@ void loop(){
         //if the input is ib, send back that the seabird is in ice breakup mode as a series of bytes 
         //change the global variable ice avoidance to 3, which is breakup mode
         else if((input.equals("ib\r"))||(input.equals("ib on\r"))){
-          iceAvoidance = 1;
+          iceAvoidance = ICEBREAKUP;
           String icebMode = "\r\nice breakup mode on\r\nS>";
           writeBytes(icebMode);
         }
@@ -1145,7 +1151,7 @@ void loop(){
         //if the input is id off, send back that ice detect mode is off as a series of bytes 
         //change the global variable ice avoidance to -1, which is normal mode
         else if(input.equals("id off\r")){
-          iceAvoidance = -1;
+          iceAvoidance = NOICE;
           String icedModeOff = "\r\nice detect mode off\r\nS>";
           writeBytes(icedModeOff);
           icePressure=20;
@@ -1154,7 +1160,7 @@ void loop(){
         //if the input is ic off, send back that ice cap mode is off as a series of bytes 
         //change the global variable ice avoidance to -1, which is normal mode
         else if(input.equals("ic off\r")){
-          iceAvoidance = -1;
+          iceAvoidance = NOICE;
           String icecModeOff = "\r\nice cap mode off\r\nS>";
           writeBytes(icecModeOff);
           icePressure=20;
@@ -1163,7 +1169,7 @@ void loop(){
         //if the input is ib off, send back that ice breakup mode is off as a series of bytes 
         //change the global variable ice avoidance to -1, which is normal mode
         else if(input.equals("ib off\r")){
-          iceAvoidance = -1;
+          iceAvoidance = NOICE;
           String icebModeOff = "\r\nice breakup mode off\r\nS>";
           writeBytes(icebModeOff);
         }
@@ -1299,19 +1305,19 @@ String getReadingFromPiston(int select){
   //then calculate temperature based on criteria
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
-  if((iceAvoidance == 1)&&(pressure < 50)){
+  if((iceAvoidance == ICEDETECT)&&(pressure < 50)){
     float midway = float((50-icePressure)/2) + icePressure;
     temperature = float((pressure-midway)/midway) - 1.8;
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
-  else if((iceAvoidance == 2)&&(pressure < 20)){
+  else if((iceAvoidance == ICECAP)&&(pressure < 20)){
    float midway = float((20-icePressure)/2) + icePressure;
    temperature = float((pressure-midway)/midway) - 1.8;
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
-  else if((iceAvoidance == 3)&&(pressure <50)){
+  else if((iceAvoidance == ICEBREAKUP)&&(pressure <50)){
     temperature = 23.2-float(pressure*0.0088);
   }
   
@@ -1337,19 +1343,13 @@ String getReadingFromPiston(int select){
   
   //choose which string you want to return
   switch(select){
-    case 0:
-      sendMessage = "";
-      break;
-    case 1:
-      sendMessage = "";
-      break;
-    case 2:
+    case PTS:
       sendMessage = ptsStr;
       break;
-    case 3:
+    case PT:
       sendMessage = ptStr;
       break;
-    case 4:
+    case P:
       sendMessage = (pStr)+"\r\n";
       break;
   }
@@ -1410,16 +1410,16 @@ String getDynamicReading(int select, int phase){
   
   //calculate a pressure based on the current phase: 0 = descent, 1 = park, 2 = deep descent, 3 = ascent
   switch(phase){
-    case 0:
+    case PARKDESCENT:
       pressure = float(float(currentTime)*parkPressure/float(parkDescentTime));
       break;
-    case 1:
+    case PARK:
       pressure = parkPressure + float(float(random(100))/float(10)) - float(float(random(100))/float(10));
       break;
-    case 2:
+    case DEEPDESCENT:
       pressure = parkPressure + float(float((currentTime-downTime))*(deepProfilePressure-parkPressure)/float(deepProfileDescentTime));
       break;
-    case 3:
+    case ASCENT:
       pressure = deepProfilePressure - float(float(((currentTime-deepProfileDescentTime)-downTime))*deepProfilePressure/float((ascentTimeOut)));
       break;
   }
@@ -1439,19 +1439,19 @@ String getDynamicReading(int select, int phase){
   //then calculate temperature based on criteria
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
-  if((iceAvoidance == 1)&&(pressure < 50)){
+  if((iceAvoidance == ICEDETECT)&&(pressure < 50)){
     float midway = float((50-icePressure)/2) + icePressure;
     temperature = (pressure-midway)/midway - 1.8;
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
-  else if((iceAvoidance == 2)&&(pressure < 20)){
+  else if((iceAvoidance == ICECAP)&&(pressure < 20)){
     float midway = float((20-icePressure)/2) + icePressure;
     temperature = (pressure-midway)/midway - 1.8;
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
-  else if((iceAvoidance == 3)&&(pressure <55)){
+  else if((iceAvoidance == ICEBREAKUP)&&(pressure <55)){
     temperature = 23.2-float(pressure*0.0088);
   }
   
@@ -1477,19 +1477,13 @@ String getDynamicReading(int select, int phase){
   
   //choose which string you want to return
   switch(select){
-    case 0:
-      sendMessage = "";
-      break;
-    case 1:
-      sendMessage = "";
-      break;
-    case 2:
+    case PTS:
       sendMessage = ptsStr;
       break;
-    case 3:
+    case PT:
       sendMessage = ptStr;
       break;
-    case 4:
+    case P:
       sendMessage = (pStr)+"\r\n";
       break;
   }
@@ -1547,19 +1541,19 @@ String binaverage(){
   //then calculate temperature based on criteria
   
   //ice detect mode, need median temp of <= -1.78 C for 20-50dbar range
-  if((iceAvoidance == 1)&&(pressure < 50)){
+  if((iceAvoidance == ICEDETECT)&&(pressure < 50)){
     float midway = float((50-icePressure)/2) + icePressure;
     temperature = (pressure-midway)/midway - 1.8;
   }
   
   //ice cap mode, need a temp of <= -1.78 C for surface (or after 20dbar)
-  else if((iceAvoidance == 2)&&(pressure < 20)){
+  else if((iceAvoidance == ICECAP)&&(pressure < 20)){
     float midway = float((20-icePressure)/2) + icePressure;
     temperature = (pressure-midway)/midway - 1.8;
   }
   
   //ice breakup mode, need a temp of > -1.78 C the whole way up
-  else if((iceAvoidance == 3)&&(pressure <55)){
+  else if((iceAvoidance == ICEBREAKUP)&&(pressure <55)){
     temperature = 23.2-float(pressure*0.0088);
   }
   
@@ -1809,17 +1803,17 @@ void runTimer(int timeOut){
 /*************************************************************************/
 long updateTime(){
   if(missionMode >= 107){
-    phase = 0;
+    phase = PARKDESCENT;
     update = millis();
     currentTime += (update - lastUpdate);
     currentTimeDisplay += ((update - lastUpdate)/1000);
     lastUpdate = update;
     if(currentTime>=parkDescentTime){
-      phase = 1;
+      phase = PARK;
       if(currentTime>=downTime){
-        phase = 2;
+        phase = DEEPDESCENT;
         if(currentTime>=(downTime+deepProfileDescentTime)){
-          phase = 3;
+          phase = ASCENT ;
           if(currentTime>=(downTime+deepProfileDescentTime+ascentTimeOut)){
             missionMode = 0;
             parkDescentTime = 18000000;
