@@ -102,10 +102,12 @@
 /*                                                                       */
 /*************************************************************************/
 
+#define PRELUDE -1
 #define PARKDESCENT 0
 #define PARK 1
 #define DEEPDESCENT 2
 #define ASCENT 3
+#define SURFACE 4
 
 #define SERNO 1
 #define PTS 2
@@ -159,19 +161,17 @@ String stopprofile = "stop";
 
 int missionMode = 0;
 
-int phase = PARKDESCENT;
+int phase = PRELUDE, lastPhase = PRELUDE;
 
 int parkPressure = 1000, deepProfilePressure = 2000;
 
 long lastUpdate = 0, update = 0;
 
-long startOffset = 0, pauseOffset = 0;
+int cycle = 0;
 
-long pauseTime = 0, resumeTime = 0;
+long prelude = 12000000, currentTime = 0, parkDescentTime = 18000000, downTime = 86400000, deepProfileDescentTime = 18000000, ascentTimeOut = 36000000;
 
-long currentTime = 0, parkDescentTime = 18000000, downTime = 86400000, deepProfileDescentTime = 18000000, ascentTimeOut = 36000000;
-
-long currentTimeDisplay = 0, parkDescentTimeDisplay = 300, downTimeDisplay = 1440, deepProfileDescentTimeDisplay = 300, ascentTimeOutDisplay = 600;
+long preludeDisplay = 200, currentTimeDisplay = 0, parkDescentTimeDisplay = 300, downTimeDisplay = 1440, deepProfileDescentTimeDisplay = 300, ascentTimeOutDisplay = 600;
 
 /*************************************************************************/
 /*                            function prototypes                        */
@@ -361,6 +361,11 @@ void loop(){
     
     //if it is 0, do nothing and just leave the loop
     case 0:
+      if(missionMode >= 107){
+        if((millis())%10000 < 1000){
+          updateTime();
+        }
+      }
       break;
       
     //if it is 1, convert the global string msg to the global byte array cmdMode
@@ -451,18 +456,18 @@ void loop(){
         String cpStr;
         if(missionMode < 107){
           if(pOrPTSsel == 1){
-            cpStr = getReadingFromPiston(2);
+            cpStr = getReadingFromPiston(PTS);
           }
           else if(pOrPTSsel == 0){
-            cpStr = getReadingFromPiston(4);
+            cpStr = getReadingFromPiston(P);
           }
         }
         else if(missionMode >= 107){
           if(pOrPTSsel == 1){
-            cpStr = getDynamicReading(2, phase);
+            cpStr = getDynamicReading(PTS, phase);
           }
           else if(pOrPTSsel == 0){
-            cpStr =getDynamicReading(4, phase);
+            cpStr =getDynamicReading(P, phase);
           }
         }
         writeBytes(cpStr);
@@ -501,6 +506,11 @@ void loop(){
       /*                     end continuous profiling mode                     */
       /*************************************************************************/
         
+      if(missionMode >= 107){
+        if((millis())%10000 < 1000){
+          updateTime();
+        }
+      }
       
       //check for a message in Serial1, if there is, create a blank string, then add each character in the 
       //Serial1 input buffer to the input string. Wait until a carriage return to make sure a command
@@ -516,7 +526,8 @@ void loop(){
             if((temp=='\r')||(input.equals("startprofile"))||(input.equals("stopprofile"))||(input.equals("parkDescentTime="))
                            ||(input.equals("parkPressure="))||(input.equals("downTime="))||(input.equals("deepProfileDescentTime="))
                            ||(input.equals("deepProfilePressure="))||(input.equals("ascentTimeOut="))
-                           ||(input.equals("currentTime="))||(input.equals("id@"))||(input.equals("ic@"))){
+                           ||(input.equals("currentTime="))||(input.equals("id@"))||(input.equals("ic@"))
+                           ||(input.equals("show "))){
               break;
             }
           }
@@ -531,6 +542,7 @@ void loop(){
          else if(input.equals("mission\r")){
           String m_config = "mission\r\nPlease enter values for the following parameters based on your misssion...\r\n"
           "\r\n"
+          "\r\nPrelude (minutes): prelude=int"
           "\r\nPark Pressure (dbar): parkPressure=int"
           "\r\nPark Descent Time (minutes): parkDescentTime=int"
           "\r\nDown Time(minutes): downTime=int"
@@ -545,7 +557,9 @@ void loop(){
         
         else if(input.equals("list parameters\r")){
           updateTime();
-          String listParams = "list parameters\r\nPark Pressure: " + String(parkPressure) +  
+          String listParams = "\r\nPhase: "+ String(phase) +
+          "\r\nPrelude: " + String(preludeDisplay) +
+          "\r\nPark Pressure: " + String(parkPressure) +  
           "\r\nPark Descent Time: " + String(parkDescentTimeDisplay) +
           "\r\nDown Time: " + String(downTimeDisplay) +
           "\r\nDeep Profile Pressure: " + String(deepProfilePressure) +
@@ -556,17 +570,10 @@ void loop(){
           missionMode += 6;
         }
         
-        else if(input.equals("start descent\r")){
-          String start = "descent started\r\nS>";
+        else if(input.equals("start mission\r")){
+          String start = "start mission\r\nS>";
           writeBytes(start);
-          startOffset = millis();
-          pauseOffset = 0;
-          currentTime += startOffset;
-          parkDescentTime += startOffset;
-          downTime += startOffset;
-          deepProfileDescentTime += startOffset;
-          ascentTimeOut += startOffset;
-          lastUpdate = startOffset;
+          lastUpdate = millis();
           missionMode+=100;
         }
         
@@ -575,36 +582,14 @@ void loop(){
           writeBytes(m_end);
           missionMode = 0;
           parkDescentTime = 18000000;
-          parkPressure = 2000;
+          parkPressure = 1000;
           downTime = 86400000;
           deepProfileDescentTime = 18000000;
-          deepProfilePressure = 4000;
+          deepProfilePressure = 2000;
           ascentTimeOut = 36000000;
           currentTime = 0;
-          startOffset = 0; 
-          pauseOffset = 0;
         }
-        
-        else if(input.equals("pause mission\r")){
-          String m_paused = "mission paused\r\nS>";
-          writeBytes(m_paused);
-          pauseTime = millis();
-          missionMode = 0;
-        }
-        
-        else if(input.equals("resume mission\r")){
-          String m_resume = "resuming mission\r\nS>";
-          writeBytes(m_resume);
-          resumeTime = millis();
-          pauseOffset = resumeTime-pauseTime;
-          currentTime += pauseOffset;
-          parkDescentTime += pauseOffset;
-          downTime += pauseOffset;
-          deepProfileDescentTime += pauseOffset;
-          ascentTimeOut += pauseOffset;
-          missionMode = 108;
-          
-        }
+       
         
         //if the input is parkDescentTime=, check the Serial port for the value to be used as the park descent time,
         //calculate the value of the park descent time in milliseconds, then send the value of park descent time as 
@@ -627,7 +612,7 @@ void loop(){
                 }
               }
               parkDescentTimeDisplay = input.toInt();
-              parkDescentTime=((input.toInt())*60000) + startOffset + pauseOffset;
+              parkDescentTime=((input.toInt())*60000);
               break;
             }
           }
@@ -686,7 +671,7 @@ void loop(){
                 }
               }
               downTimeDisplay = input.toInt();
-              downTime=((input.toInt())*60000) + startOffset + pauseOffset;
+              downTime=((input.toInt())*60000);
               break;
             }
           }
@@ -716,7 +701,7 @@ void loop(){
                 }
               }
               deepProfileDescentTimeDisplay = input.toInt();
-              deepProfileDescentTime=((input.toInt())*60000) + startOffset + pauseOffset;
+              deepProfileDescentTime=((input.toInt())*60000);
               break;
             }
           }
@@ -775,7 +760,7 @@ void loop(){
                 }
               }
               ascentTimeOutDisplay = input.toInt();
-              ascentTimeOut=((input.toInt())*60000) + startOffset + pauseOffset;
+              ascentTimeOut=((input.toInt())*60000);
               break;
             }
           }
@@ -805,13 +790,66 @@ void loop(){
                 }
               }
               currentTimeDisplay = input.toInt();
-              currentTime=((input.toInt())*1000)+ startOffset + pauseOffset;
+              currentTime=((input.toInt())*1000);
               lastUpdate = millis();
               break;
             }
           }
           String currentTimeStr = "\r\nS>currentTime="+String(currentTimeDisplay)+" ("+String((currentTimeDisplay/60))+" minutes)\r\nS>";
           writeBytes(currentTimeStr);
+          missionMode++;
+        }
+        
+        //if the input is show , check the Serial port for the value to be used as the current time,
+        //calculate the value of the current time in milliseconds, then send the value of current time as 
+        //a series of bytes, confirm that the value has actually changed by using the global variable value 
+        //in this echo
+        else if(input.equals("show ")){
+          updateTime();
+          while(1){
+            if(Serial1.available()>0){
+              String input = "";
+              while(1){
+                if(Serial1.available()>0){  
+                  char temp;
+                  temp = char(Serial1.read());
+                  if(temp=='\r'){
+                    break;
+                  }
+                  if(temp!=' '){
+                    input+=temp;
+                  }
+                }
+              }
+              String str;
+              if(input.equals("currentTime")){
+               str= "\r\nS>"+input+"="+String(currentTime);
+              }
+              else if(input.equals("parkPressure")){
+               str= "\r\nS>"+input+"="+String(parkPressure);
+              }
+              else if(input.equals("deepProfilePressure")){
+               str= "\r\nS>"+input+"="+String(deepProfilePressure);
+              }
+              else if(input.equals("parkDescentTime")){
+               str= "\r\nS>"+input+"="+String(parkDescentTime);
+              }
+              else if(input.equals("downTime")){
+               str= "\r\nS>"+input+"="+String(downTime);
+              }
+              else if(input.equals("prelude")){
+               str= "\r\nS>"+input+"="+String(prelude);
+              }
+              else if(input.equals("deepProfileDescentTime")){
+               str= "\r\nS>"+input+"="+String(deepProfileDescentTime);
+              }
+              else if(input.equals("ascentTimeOut")){
+               str= "\r\nS>"+input+"="+String(ascentTimeOut);
+              }
+              writeBytes(str);
+              break;
+            }
+          }
           missionMode++;
         }
         
@@ -1410,17 +1448,20 @@ String getDynamicReading(int select, int phase){
   
   //calculate a pressure based on the current phase: 0 = descent, 1 = park, 2 = deep descent, 3 = ascent
   switch(phase){
+    case PRELUDE:
+      pressure = 0;
+      break;
     case PARKDESCENT:
-      pressure = float(float(currentTime)*parkPressure/float(parkDescentTime));
+      pressure = float(float((currentTime-prelude))*parkPressure/float(parkDescentTime));
       break;
     case PARK:
       pressure = parkPressure + float(float(random(100))/float(10)) - float(float(random(100))/float(10));
       break;
     case DEEPDESCENT:
-      pressure = parkPressure + float(float((currentTime-downTime))*(deepProfilePressure-parkPressure)/float(deepProfileDescentTime));
+      pressure = parkPressure + float(float(((currentTime-prelude)-(downTime-deepProfileDescentTime)))*(deepProfilePressure-parkPressure)/float(deepProfileDescentTime));
       break;
     case ASCENT:
-      pressure = deepProfilePressure - float(float(((currentTime-deepProfileDescentTime)-downTime))*deepProfilePressure/float((ascentTimeOut)));
+      pressure = deepProfilePressure - float(float((currentTime-downTime-prelude))*deepProfilePressure/float((ascentTimeOut)));
       break;
   }
   
@@ -1802,33 +1843,46 @@ void runTimer(int timeOut){
 /*                                                                       */
 /*************************************************************************/
 long updateTime(){
+  int rollover;
   if(missionMode >= 107){
-    phase = PARKDESCENT;
+    while(phase == SURFACE){
+      /**************************************/
+    }
+    lastPhase = phase;
     update = millis();
-    currentTime += (update - lastUpdate);
-    currentTimeDisplay += ((update - lastUpdate)/1000);
+    if(update < lastUpdate){
+      rollover = 2147483647-lastUpdate;
+      currentTime += (update+rollover);
+      currentTimeDisplay +=((update+rollover)/1000);
+    }
+    else{
+      currentTime += (update - lastUpdate);
+      currentTimeDisplay += ((update - lastUpdate)/1000);
+    }
     lastUpdate = update;
-    if(currentTime>=parkDescentTime){
-      phase = PARK;
-      if(currentTime>=downTime){
-        phase = DEEPDESCENT;
-        if(currentTime>=(downTime+deepProfileDescentTime)){
-          phase = ASCENT ;
-          if(currentTime>=(downTime+deepProfileDescentTime+ascentTimeOut)){
-            missionMode = 0;
-            parkDescentTime = 18000000;
-            parkPressure = 1000;
-            downTime = 86400000;
-            deepProfileDescentTime = 18000000;
-            deepProfilePressure = 2000;
-            ascentTimeOut = 36000000;
-            currentTime = 0;
-            startOffset = 0;
-            pauseOffset = 0;
-          }
-        }  
+    phase = PRELUDE;
+    if(currentTime>=prelude){
+      phase = PARKDESCENT;
+      if(currentTime>=(parkDescentTime+prelude)){
+        phase = PARK;
+        if(currentTime>=(downTime-deepProfileDescentTime+prelude)){
+          phase = DEEPDESCENT;
+          if(currentTime>=downTime+prelude){
+            phase = ASCENT ;
+            if(currentTime>=(downTime+ascentTimeOut+prelude)){
+              phase = SURFACE;
+              prelude = 0;
+              preludeDisplay = 0;
+              currentTime = 0;
+              currentTimeDisplay = 0;
+            }
+          }  
+        }
       }
     }
+  }
+  if((lastPhase == ASCENT)&&(phase == SURFACE)){
+    cycle += 1;
   }
   return currentTime;
 }
@@ -1849,7 +1903,7 @@ long updateTime(){
 /*************************************************************************/      
 void writeBytes(String aString){
   int strLen = aString.length()+1;
-  byte strBuffer[500];
+  byte strBuffer[550];
   aString.getBytes(strBuffer, strLen);
   Serial1.write(strBuffer, strLen);
 }
