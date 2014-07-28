@@ -106,8 +106,9 @@
 #define PARKDESCENT 0
 #define PARK 1
 #define DEEPDESCENT 2
-#define ASCENT 3
-#define SURFACE 4
+#define ASCENTTOPARK 3
+#define ASCENTTOSURFACE 4
+#define SURFACE 5
 
 #define SERNO 1
 #define PTS 2
@@ -161,6 +162,8 @@ String stopprofile = "stop";
 
 int missionMode = 0;
 
+int currentPosition = 0, lastPosition = 0;
+
 int phase = PRELUDE, lastPhase = PRELUDE;
 
 int parkPressure = 1000, deepProfilePressure = 2000;
@@ -170,6 +173,8 @@ long lastUpdate = 0, update = 0;
 int cycle = 0;
 
 long prelude = 12000000, currentTime = 0, parkDescentTime = 18000000, downTime = 86400000, deepProfileDescentTime = 18000000, ascentTimeOut = 36000000;
+
+long preludeCopy = 12000000, currentTimeCopy = 0, parkDescentTimeCopy = 18000000, downTimeCopy = 86400000, deepProfileDescentTimeCopy = 18000000, ascentTimeOutCopy = 36000000;
 
 long preludeDisplay = 200, currentTimeDisplay = 0, parkDescentTimeDisplay = 300, downTimeDisplay = 1440, deepProfileDescentTimeDisplay = 300, ascentTimeOutDisplay = 600;
 
@@ -359,11 +364,64 @@ void loop(){
   //interruptMessage will be zero unless changed during the ISR
   switch(interruptMessage){
     
-    //if it is 0, do nothing and just leave the loop
     case 0:
       if(missionMode >= 107){
-        if((millis())%10000 < 1000){
-          updateTime();
+        if(phase==SURFACE){
+          if((millis())%15000 < 5){
+            updateTime();
+            currentPosition= analogRead(A0);
+            Serial.println(String(currentPosition));
+            if(lastPosition!=0){
+              if(currentPosition < lastPosition - 4){
+                phase = PARKDESCENT;
+                lastUpdate = millis();
+              }
+            }
+            lastPosition=currentPosition;
+          }
+        }
+        //in park phase between first 5 and 15 minutes or last 5 minutes
+        else if((phase==PARK)&&(((currentTime>(prelude+parkDescentTime+300000))&&(currentTime<(prelude+parkDescentTime+900000)))
+                              ||(currentTime>(prelude+downTime-deepProfileDescentTime-600000)))){
+          if((millis())%15000 < 5){
+            updateTime();
+            Serial.println(String(downTime));
+            Serial.println(String(downTimeCopy));
+            analogRead(A0);
+            currentPosition= analogRead(A0);
+            Serial.println(String(currentPosition));
+            if(lastPosition!=0){
+              if(currentPosition > lastPosition + 4){
+                Serial.println(String(phase));
+                phase = ASCENTTOSURFACE;
+                Serial.println(String(phase));
+                Serial.println(String(downTime));
+                Serial.println(String(downTimeCopy));
+                downTimeCopy = downTime;
+                Serial.println(String(downTime));
+                Serial.println(String(downTimeCopy));
+                downTime = currentTime+deepProfileDescentTime-ascentTimeOut-prelude;
+                Serial.println(String(downTime));
+                Serial.println(String(downTimeCopy));
+                lastUpdate = millis();
+              }
+              else if(currentPosition < lastPosition - 4){
+                Serial.println(String(phase));
+                phase = DEEPDESCENT;
+                Serial.println(String(phase));
+                Serial.println(String(downTime));
+                Serial.println(String(downTimeCopy));
+                downTimeCopy = downTime;
+                Serial.println(String(downTime));
+                Serial.println(String(downTimeCopy));
+                downTime = currentTime+deepProfileDescentTime-prelude;
+                Serial.println(String(downTime));
+                Serial.println(String(downTimeCopy));
+                lastUpdate = millis();
+              }
+            }
+            lastPosition=currentPosition;
+          }
         }
       }
       break;
@@ -507,7 +565,7 @@ void loop(){
       /*************************************************************************/
         
       if(missionMode >= 107){
-        if((millis())%10000 < 1000){
+        if((millis())%10000 < 5){
           updateTime();
         }
       }
@@ -551,7 +609,10 @@ void loop(){
           "\r\nAscent Time Out(minutes): ascentTimeOut=int"
           "\r\nCurrent Time(seconds) (optional- use to change simulation time): currentTime=int"
           "\r\nS>";
-          writeBytes(m_config);
+          int m_configLen = m_config.length()+1;
+          byte m_configBuff[750];
+          m_config.getBytes(m_configBuff, m_configLen);
+          Serial1.write(m_configBuff, m_configLen);
           missionMode += 1;
         }
         
@@ -616,6 +677,7 @@ void loop(){
               break;
             }
           }
+          parkDescentTimeCopy = parkDescentTime;
           String parkDescentTimeStr = "\r\nS>parkDescentTime="+String(parkDescentTimeDisplay)+"\r\nS>";
           writeBytes(parkDescentTimeStr);
           missionMode++;
@@ -675,6 +737,7 @@ void loop(){
               break;
             }
           }
+          downTimeCopy = downTime;
           String downTimeStr = "\r\nS>downTime="+String(downTimeDisplay)+"\r\nS>";
           writeBytes(downTimeStr);
           missionMode++;
@@ -705,6 +768,7 @@ void loop(){
               break;
             }
           }
+          deepProfileDescentTimeCopy = deepProfileDescentTime;
           String deepProfileDescentTimeStr = "\r\nS>deepProfileDescentTime="+String(deepProfileDescentTimeDisplay)+"\r\nS>";
           writeBytes(deepProfileDescentTimeStr);
           missionMode++;
@@ -764,6 +828,7 @@ void loop(){
               break;
             }
           }
+          ascentTimeOutCopy = ascentTimeOut;
           String ascentTimeOutStr = "\r\nS>ascentTimeOut="+String(ascentTimeOutDisplay)+"\r\nS>";
           writeBytes(ascentTimeOutStr);
           missionMode++;
@@ -821,9 +886,10 @@ void loop(){
                   }
                 }
               }
-              String str;
+              String str; 
               if(input.equals("currentTime")){
-               str= "\r\nS>"+input+"="+String(currentTime);
+               str= "\r\nS>"+input+"="+String(currentTime)+
+               "\r\nS>"+input+"="+String(currentTimeCopy);
               }
               else if(input.equals("parkPressure")){
                str= "\r\nS>"+input+"="+String(parkPressure);
@@ -832,19 +898,24 @@ void loop(){
                str= "\r\nS>"+input+"="+String(deepProfilePressure);
               }
               else if(input.equals("parkDescentTime")){
-               str= "\r\nS>"+input+"="+String(parkDescentTime);
+               str= "\r\nS>"+input+"="+String(parkDescentTime)+
+               "\r\nS>"+input+"="+String(parkDescentTimeCopy);
               }
               else if(input.equals("downTime")){
-               str= "\r\nS>"+input+"="+String(downTime);
+               str= "\r\nS>"+input+"="+String(downTime)+
+               "\r\nS>"+input+"="+String(downTimeCopy);
               }
               else if(input.equals("prelude")){
-               str= "\r\nS>"+input+"="+String(prelude);
+               str= "\r\nS>"+input+"="+String(prelude)+
+               "\r\nS>"+input+"="+String(preludeCopy);
               }
               else if(input.equals("deepProfileDescentTime")){
-               str= "\r\nS>"+input+"="+String(deepProfileDescentTime);
+               str= "\r\nS>"+input+"="+String(deepProfileDescentTime)+
+               "\r\nS>"+input+"="+String(deepProfileDescentTimeCopy);
               }
               else if(input.equals("ascentTimeOut")){
-               str= "\r\nS>"+input+"="+String(ascentTimeOut);
+               str= "\r\nS>"+input+"="+String(ascentTimeOut)+
+               "\r\nS>"+input+"="+String(ascentTimeOut);
               }
               writeBytes(str);
               break;
@@ -1216,26 +1287,20 @@ void loop(){
         else if(input.equals("?\r")){
           String list = "?\r\nAPF-9 & APF-11 Iridium SBE41cp Simulator"
           "\r\nid"
-          "\r\nid on"
           "\r\nid@<value>"
           "\r\nid off"
           "\r\nic"
-          "\r\nic on"
           "\r\nic@<value>"
           "\r\nic off"
           "\r\nib"
-          "\r\nib on"
           "\r\nib off"
           "\r\nqsr"
           "\r\nda"
           "\r\nds"
           "\r\ndc"
-          "\r\nstartprofile"
-          "\r\nstopprofile"
-          "\r\nbinaverage"
           "\r\nmission"
           "\r\nlist parameters"
-          "\r\nstart descent"
+          "\r\nstart mission"
           "\r\nparkPressure=<value>"
           "\r\nparkDescentTime=<value>"
           "\r\ndeepProfilePressure=<value>"
@@ -1243,8 +1308,6 @@ void loop(){
           "\r\ndownTime=<value>"
           "\r\nascentTimeOut=<value>"
           "\r\ncurrentTime=<value>"
-          "\r\npause mission"
-          "\r\nresume mission"
           "\r\nend mission\r\nS>";
           writeBytes(list);
         }
@@ -1460,8 +1523,14 @@ String getDynamicReading(int select, int phase){
     case DEEPDESCENT:
       pressure = parkPressure + float(float(((currentTime-prelude)-(downTime-deepProfileDescentTime)))*(deepProfilePressure-parkPressure)/float(deepProfileDescentTime));
       break;
-    case ASCENT:
-      pressure = deepProfilePressure - float(float((currentTime-downTime-prelude))*deepProfilePressure/float((ascentTimeOut)));
+    case ASCENTTOPARK:
+      pressure = deepProfilePressure - float(float((currentTime-downTime-prelude))*(deepProfilePressure-parkPressure)/float((ascentTimeOut/2)));
+      break;
+    case ASCENTTOSURFACE:
+      pressure = parkPressure - float(float((currentTime-downTime-prelude-ascentTimeOut/2))*(parkPressure)/float((ascentTimeOut/2)));
+      break;
+    case SURFACE:
+      pressure = 0;
       break;
   }
   
@@ -1839,49 +1908,60 @@ void runTimer(int timeOut){
 /*                                                                       */
 /* This function updates the current time of the mission and determines  */
 /* which part of the mission the simulator should be in, currently, the  */
-/* default order is park descent, park, deep descent, ascent, done       */
+/* default order is prelude, park descent, park, deep descent, ascent,   */
+/* surface mode, then repeat                                             */
 /*                                                                       */
 /*************************************************************************/
 long updateTime(){
+  Serial.println("update");
   int rollover;
   if(missionMode >= 107){
-    while(phase == SURFACE){
-      /**************************************/
-    }
     lastPhase = phase;
-    update = millis();
-    if(update < lastUpdate){
-      rollover = 2147483647-lastUpdate;
-      currentTime += (update+rollover);
-      currentTimeDisplay +=((update+rollover)/1000);
+    if(phase == SURFACE){
     }
     else{
-      currentTime += (update - lastUpdate);
-      currentTimeDisplay += ((update - lastUpdate)/1000);
-    }
-    lastUpdate = update;
-    phase = PRELUDE;
-    if(currentTime>=prelude){
-      phase = PARKDESCENT;
-      if(currentTime>=(parkDescentTime+prelude)){
-        phase = PARK;
-        if(currentTime>=(downTime-deepProfileDescentTime+prelude)){
-          phase = DEEPDESCENT;
-          if(currentTime>=downTime+prelude){
-            phase = ASCENT ;
-            if(currentTime>=(downTime+ascentTimeOut+prelude)){
-              phase = SURFACE;
-              prelude = 0;
-              preludeDisplay = 0;
-              currentTime = 0;
-              currentTimeDisplay = 0;
-            }
-          }  
+      update = millis();
+      if(update < lastUpdate){
+        rollover = 2147483647-lastUpdate;
+        currentTime += (update+rollover);
+        currentTimeDisplay +=((update+rollover)/1000);
+      }
+      else{
+        currentTime += (update - lastUpdate);
+        currentTimeDisplay += ((update - lastUpdate)/1000);
+      }
+      lastUpdate = update;
+      phase = PRELUDE;
+      if(currentTime>=prelude){
+        phase = PARKDESCENT;
+        if(currentTime>=(parkDescentTime+prelude)){
+          phase = PARK;
+          if(currentTime>=(downTime-deepProfileDescentTime+prelude)){
+            phase = DEEPDESCENT;
+            if(currentTime>=downTime+prelude){
+              phase = ASCENTTOPARK;
+              if(currentTime>downTime+prelude+ascentTimeOut/2){
+                phase = ASCENTTOSURFACE;
+                if(currentTime>=(downTime+ascentTimeOut+prelude)){
+                  phase = SURFACE;
+                  prelude = 0;
+                  preludeCopy = 0;
+                  preludeDisplay = 0;
+                  currentTime = 0;
+                  currentTimeDisplay = 0;
+                  parkDescentTime = parkDescentTimeCopy;
+                  downTime = downTimeCopy;
+                  deepProfileDescentTime = deepProfileDescentTimeCopy;
+                  ascentTimeOut = ascentTimeOutCopy;
+                }
+              }
+            }  
+          }
         }
       }
     }
   }
-  if((lastPhase == ASCENT)&&(phase == SURFACE)){
+  if((lastPhase == ASCENTTOSURFACE)&&(phase == SURFACE)){
     cycle += 1;
   }
   return currentTime;
