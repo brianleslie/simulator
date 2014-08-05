@@ -208,7 +208,7 @@ int icePressure = 20;
 
 String stopprofile = "stop";
 
-int cpModeStart = 0, cpModeEnd = 0;
+long int cpModeStart = 0, cpModeEnd = 0;
 
 int missionMode = 0;
 
@@ -471,10 +471,8 @@ void loop(){
       }
       
       //handle the float descending for a short park or leaving park earlier than anticipated
-      //by checking the piston position every 15 sceonds, this will start 5min into park
-      //and will continute until 15min into park, it will resume for the last 5min of park
-      else if/*(*/(currentPhase==PARK){ /*&&(((missionTime>(prelude+parkDescentTime+300000))&&(missionTime<(prelude+parkDescentTime+900000)))
-                            ||(missionTime>(prelude+downTime-deepProfileDescentTime-600000)))){ */
+      //by checking the piston position every 15 sceonds, this will start 2min into park
+      else if((currentPhase==PARK)&&(missionTime>(prelude+parkDescentTime+120000))){
         if((millis())%15000 < 5){
           updateTime();
           analogRead(A0);
@@ -518,11 +516,11 @@ void loop(){
               downTimeCopy = downTime;
               
               //set downTime
-              downTime = missionTime+deepProfileDescentTime-prelude;
+              downTime = missionTime+deepProfileDescentTime-prelude - 15000;
               downTimeDisplay = downTime/60000;
               
               //setMissionTime
-              missionTime+=15000;
+              missionTime+=5000;
               
               lastUpdate = millis();
             }
@@ -678,11 +676,11 @@ void loop(){
       updateTime();
       String listParams = "\r\nMission Time: "+String(missionTimeDisplay) +
       "\r\nPhase of mission cycle: "+ phase[currentPhase] +
-      "\r\nPrelude: " + String((preludeDisplay*60)) + 
-      "\r\nPark Descent: " + String(((parkDescentTimeDisplay+preludeDisplay)*60)) +
-      "\r\nPark: " + String(((downTimeDisplay-deepProfileDescentTimeDisplay+preludeDisplay)*60)) +
-      "\r\nDeep Descent: " + String(((preludeDisplay+downTimeDisplay)*60)) +
-      "\r\nTelemetry: " + String(((preludeDisplay+downTimeDisplay+ascentTimeOutDisplay)*60)) + 
+      "\r\nPrelude: " + String((prelude/1000)) + 
+      "\r\nPark Descent: " + String(((parkDescentTime+prelude)/1000)) +
+      "\r\nPark: " + String(((downTime-deepProfileDescentTime+prelude)/1000)) +
+      "\r\nDeep Descent: " + String(((prelude+downTime)/1000)) +
+      "\r\nAscent TimeOut: " + String(((prelude+downTime+ascentTimeOut)/1000)) + 
       "\r\nS>";
       writeBytes(listParams);
     }
